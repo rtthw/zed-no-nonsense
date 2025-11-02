@@ -31,7 +31,6 @@ cli.workspace = true
 collections.workspace = true
 command_palette.workspace = true
 component.workspace = true
-crashes.workspace = true
 dap_adapters.workspace = true
 db.workspace = true
 debug_adapter_extension.workspace = true
@@ -79,7 +78,6 @@ markdown_preview.workspace = true
 menu.workspace = true
 migrator.workspace = true
 mimalloc = { version = "0.1", optional = true }
-nc.workspace = true
 nix = { workspace = true, features = ["pthread", "signal"] }
 node_runtime.workspace = true
 notifications.workspace = true

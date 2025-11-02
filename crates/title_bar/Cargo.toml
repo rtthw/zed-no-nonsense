@@ -25,7 +25,6 @@ test-support = [
 
 [dependencies]
 anyhow.workspace = true
-channel.workspace = true
 chrono.workspace = true
 db.workspace = true
 gpui = { workspace = true, features = ["screen-capture"] }

@@ -1152,9 +1152,8 @@ impl WslPath {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use util_macros::perf;
 
-    #[perf]
+    #[test]
     fn compare_paths_with_dots() {
         let mut paths = vec![
             (Path::new("test_dirs"), false),
@@ -1192,7 +1191,7 @@ mod tests {
         );
     }
 
-    #[perf]
+    #[test]
     fn compare_paths_with_same_name_different_extensions() {
         let mut paths = vec![
             (Path::new("test_dirs/file.rs"), true),
@@ -1214,7 +1213,7 @@ mod tests {
         );
     }
 
-    #[perf]
+    #[test]
     fn compare_paths_case_semi_sensitive() {
         let mut paths = vec![
             (Path::new("test_DIRS"), false),
@@ -1246,7 +1245,7 @@ mod tests {
         );
     }
 
-    #[perf]
+    #[test]
     fn path_with_position_parse_posix_path() {
         // Test POSIX filename edge cases
         // Read more at https://en.wikipedia.org/wiki/Filename
@@ -1333,7 +1332,7 @@ mod tests {
         );
     }
 
-    #[perf]
+    #[test]
     #[cfg(not(target_os = "windows"))]
     fn path_with_position_parse_posix_path_with_suffix() {
         assert_eq!(
@@ -1389,7 +1388,7 @@ mod tests {
         );
     }
 
-    #[perf]
+    #[test]
     #[cfg(target_os = "windows")]
     fn path_with_position_parse_windows_path() {
         assert_eq!(
@@ -1411,7 +1410,7 @@ mod tests {
         );
     }
 
-    #[perf]
+    #[test]
     #[cfg(target_os = "windows")]
     fn path_with_position_parse_windows_path_with_suffix() {
         assert_eq!(
@@ -1524,7 +1523,7 @@ mod tests {
         );
     }
 
-    #[perf]
+    #[test]
     fn test_path_compact() {
         let path: PathBuf = [
             home_dir().to_string_lossy().into_owned(),
@@ -1539,7 +1538,7 @@ mod tests {
         }
     }
 
-    #[perf]
+    #[test]
     fn test_extension_or_hidden_file_name() {
         // No dots in name
         let path = Path::new("/a/b/c/file_name.rs");
@@ -1562,7 +1561,7 @@ mod tests {
         assert_eq!(path.extension_or_hidden_file_name(), Some("eslintrc.js"));
     }
 
-    #[perf]
+    #[test]
     fn edge_of_glob() {
         let path = Path::new("/work/node_modules");
         let path_matcher =
@@ -1573,7 +1572,7 @@ mod tests {
         );
     }
 
-    #[perf]
+    #[test]
     fn project_search() {
         let path = Path::new("/Users/someonetoignore/work/zed/zed.dev/node_modules");
         let path_matcher =
@@ -1584,7 +1583,7 @@ mod tests {
         );
     }
 
-    #[perf]
+    #[test]
     #[cfg(target_os = "windows")]
     fn test_sanitized_path() {
         let path = Path::new("C:\\Users\\someone\\test_file.rs");
@@ -1602,7 +1601,7 @@ mod tests {
         );
     }
 
-    #[perf]
+    #[test]
     fn test_compare_numeric_segments() {
         // Helper function to create peekable iterators and test
         fn compare(a: &str, b: &str) -> Ordering {
@@ -1670,7 +1669,7 @@ mod tests {
         assert_eq!(b_iter.collect::<String>(), "def");
     }
 
-    #[perf]
+    #[test]
     fn test_natural_sort() {
         // Basic alphanumeric
         assert_eq!(natural_sort("a", "b"), Ordering::Less);
@@ -1724,7 +1723,7 @@ mod tests {
         assert_eq!(natural_sort("File_a1", "File_A1"), Ordering::Less);
     }
 
-    #[perf]
+    #[test]
     fn test_compare_paths() {
         // Helper function for cleaner tests
         fn compare(a: &str, is_a_file: bool, b: &str, is_b_file: bool) -> Ordering {
@@ -1810,7 +1809,7 @@ mod tests {
         );
     }
 
-    #[perf]
+    #[test]
     fn test_natural_sort_case_sensitivity() {
         std::thread::sleep(std::time::Duration::from_millis(100));
         // Same letter different case - lowercase should come first
@@ -1830,7 +1829,7 @@ mod tests {
         assert_eq!(natural_sort("a", "B"), Ordering::Less);
     }
 
-    #[perf]
+    #[test]
     fn test_natural_sort_with_numbers() {
         // Basic number ordering
         assert_eq!(natural_sort("file1", "file2"), Ordering::Less);
@@ -1908,7 +1907,7 @@ mod tests {
         assert_eq!(natural_sort("file1", "File2"), Ordering::Less);
     }
 
-    #[perf]
+    #[test]
     fn test_natural_sort_edge_cases() {
         // Empty strings
         assert_eq!(natural_sort("", ""), Ordering::Equal);
