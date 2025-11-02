@@ -3,11 +3,6 @@ use anyhow::{Context as _, Result};
 use chrono::{DateTime, Utc};
 use cloud_api_client::websocket_protocol::MessageToClient;
 use cloud_api_client::{GetAuthenticatedUserResponse, PlanInfo};
-use cloud_llm_client::{
-    EDIT_PREDICTIONS_USAGE_AMOUNT_HEADER_NAME, EDIT_PREDICTIONS_USAGE_LIMIT_HEADER_NAME,
-    MODEL_REQUESTS_USAGE_AMOUNT_HEADER_NAME, MODEL_REQUESTS_USAGE_LIMIT_HEADER_NAME, Plan,
-    UsageLimit,
-};
 use collections::{HashMap, HashSet, hash_map::Entry};
 use derive_more::Deref;
 use feature_flags::FeatureFlagAppExt;
@@ -108,8 +103,6 @@ pub struct UserStore {
     by_github_login: HashMap<SharedString, u64>,
     participant_indices: HashMap<u64, ParticipantIndex>,
     update_contacts_tx: mpsc::UnboundedSender<UpdateContacts>,
-    model_request_usage: Option<ModelRequestUsage>,
-    edit_prediction_usage: Option<EditPredictionUsage>,
     plan_info: Option<PlanInfo>,
     current_user: watch::Receiver<Option<Arc<User>>>,
     contacts: Vec<Arc<Contact>>,
@@ -187,8 +180,6 @@ impl UserStore {
             by_github_login: Default::default(),
             current_user: current_user_rx,
             plan_info: None,
-            model_request_usage: None,
-            edit_prediction_usage: None,
             contacts: Default::default(),
             incoming_contact_requests: Default::default(),
             participant_indices: Default::default(),
@@ -694,20 +685,6 @@ impl UserStore {
     }
 
     pub fn plan(&self) -> Option<Plan> {
-        #[cfg(debug_assertions)]
-        if let Ok(plan) = std::env::var("ZED_SIMULATE_PLAN").as_ref() {
-            use cloud_llm_client::PlanV1;
-
-            return match plan.as_str() {
-                "free" => Some(Plan::V1(PlanV1::ZedFree)),
-                "trial" => Some(Plan::V1(PlanV1::ZedProTrial)),
-                "pro" => Some(Plan::V1(PlanV1::ZedPro)),
-                _ => {
-                    panic!("ZED_SIMULATE_PLAN must be one of 'free', 'trial', or 'pro'");
-                }
-            };
-        }
-
         self.plan_info.as_ref().map(|info| info.plan())
     }
 
@@ -751,32 +728,6 @@ impl UserStore {
             .as_ref()
             .map(|plan| plan.is_usage_based_billing_enabled)
             .unwrap_or_default()
-    }
-
-    pub fn model_request_usage(&self) -> Option<ModelRequestUsage> {
-        if self.plan().is_some_and(|plan| plan.is_v2()) {
-            return None;
-        }
-
-        self.model_request_usage
-    }
-
-    pub fn update_model_request_usage(&mut self, usage: ModelRequestUsage, cx: &mut Context<Self>) {
-        self.model_request_usage = Some(usage);
-        cx.notify();
-    }
-
-    pub fn edit_prediction_usage(&self) -> Option<EditPredictionUsage> {
-        self.edit_prediction_usage
-    }
-
-    pub fn update_edit_prediction_usage(
-        &mut self,
-        usage: EditPredictionUsage,
-        cx: &mut Context<Self>,
-    ) {
-        self.edit_prediction_usage = Some(usage);
-        cx.notify();
     }
 
     fn update_authenticated_user(
@@ -949,52 +900,5 @@ impl Collaborator {
             committer_name: message.committer_name,
             committer_email: message.committer_email,
         })
-    }
-}
-
-impl RequestUsage {
-    pub fn over_limit(&self) -> bool {
-        match self.limit {
-            UsageLimit::Limited(limit) => self.amount >= limit,
-            UsageLimit::Unlimited => false,
-        }
-    }
-
-    fn from_headers(
-        limit_name: &str,
-        amount_name: &str,
-        headers: &HeaderMap<HeaderValue>,
-    ) -> Result<Self> {
-        let limit = headers
-            .get(limit_name)
-            .with_context(|| format!("missing {limit_name:?} header"))?;
-        let limit = UsageLimit::from_str(limit.to_str()?)?;
-
-        let amount = headers
-            .get(amount_name)
-            .with_context(|| format!("missing {amount_name:?} header"))?;
-        let amount = amount.to_str()?.parse::<i32>()?;
-
-        Ok(Self { limit, amount })
-    }
-}
-
-impl ModelRequestUsage {
-    pub fn from_headers(headers: &HeaderMap<HeaderValue>) -> Result<Self> {
-        Ok(Self(RequestUsage::from_headers(
-            MODEL_REQUESTS_USAGE_LIMIT_HEADER_NAME,
-            MODEL_REQUESTS_USAGE_AMOUNT_HEADER_NAME,
-            headers,
-        )?))
-    }
-}
-
-impl EditPredictionUsage {
-    pub fn from_headers(headers: &HeaderMap<HeaderValue>) -> Result<Self> {
-        Ok(Self(RequestUsage::from_headers(
-            EDIT_PREDICTIONS_USAGE_LIMIT_HEADER_NAME,
-            EDIT_PREDICTIONS_USAGE_AMOUNT_HEADER_NAME,
-            headers,
-        )?))
     }
 }

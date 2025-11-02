@@ -1,7 +1,6 @@
 use crate::{Client, Connection, Credentials, EstablishConnectionError, UserStore};
 use anyhow::{Context as _, Result, anyhow};
 use cloud_api_client::{AuthenticatedUser, GetAuthenticatedUserResponse, PlanInfo};
-use cloud_llm_client::{CurrentUsage, PlanV1, UsageData, UsageLimit};
 use futures::{StreamExt, stream::BoxStream};
 use gpui::{AppContext as _, BackgroundExecutor, Entity, TestAppContext};
 use http_client::{AsyncBody, Method, Request, http};

@@ -555,33 +555,7 @@ pub fn main() {
             cx.background_executor().clone(),
         );
         command_palette::init(cx);
-        let copilot_language_server_id = app_state.languages.next_language_server_id();
-        copilot::init(
-            copilot_language_server_id,
-            app_state.fs.clone(),
-            app_state.client.http_client(),
-            app_state.node_runtime.clone(),
-            cx,
-        );
-        supermaven::init(app_state.client.clone(), cx);
-        language_model::init(app_state.client.clone(), cx);
-        language_models::init(app_state.user_store.clone(), app_state.client.clone(), cx);
-        agent_settings::init(cx);
-        acp_tools::init(cx);
-        zeta2_tools::init(cx);
-        web_search::init(cx);
-        web_search_providers::init(app_state.client.clone(), cx);
         snippet_provider::init(cx);
-        edit_prediction_registry::init(app_state.client.clone(), app_state.user_store.clone(), cx);
-        let prompt_builder = PromptBuilder::load(app_state.fs.clone(), stdout_is_a_pty(), cx);
-        agent_ui::init(
-            app_state.fs.clone(),
-            app_state.client.clone(),
-            prompt_builder.clone(),
-            app_state.languages.clone(),
-            false,
-            cx,
-        );
         repl::init(app_state.fs.clone(), cx);
         recent_projects::init(cx);
 
@@ -616,9 +590,7 @@ pub fn main() {
         theme_selector::init(cx);
         settings_profile_selector::init(cx);
         language_tools::init(cx);
-        call::init(app_state.client.clone(), app_state.user_store.clone(), cx);
         notifications::init(app_state.client.clone(), app_state.user_store.clone(), cx);
-        collab_ui::init(&app_state, cx);
         git_ui::init(cx);
         feedback::init(cx);
         markdown_preview::init(cx);
@@ -627,7 +599,6 @@ pub fn main() {
         settings_ui::init(cx);
         keymap_editor::init(cx);
         extensions_ui::init(cx);
-        zeta::init(cx);
         inspector_ui::init(app_state.clone(), cx);
         json_schema_store::init(cx);
 

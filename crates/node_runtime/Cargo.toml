@@ -21,7 +21,6 @@ async-compression.workspace = true
 async-tar.workspace = true
 async-trait.workspace = true
 futures.workspace = true
-http_client.workspace = true
 log.workspace = true
 paths.workspace = true
 semver.workspace = true

@@ -14,9 +14,7 @@ doctest = false
 
 [features]
 test-support = [
-    "call/test-support",
     "client/test-support",
-    "http_client/test-support",
     "db/test-support",
     "project/test-support",
     "session/test-support",
@@ -29,7 +27,6 @@ test-support = [
 any_vec.workspace = true
 anyhow.workspace = true
 async-recursion.workspace = true
-call.workspace = true
 client.workspace = true
 clock.workspace = true
 collections.workspace = true
@@ -38,7 +35,6 @@ db.workspace = true
 fs.workspace = true
 futures.workspace = true
 gpui.workspace = true
-http_client.workspace = true
 itertools.workspace = true
 language.workspace = true
 log.workspace = true
@@ -47,7 +43,6 @@ node_runtime.workspace = true
 parking_lot.workspace = true
 postage.workspace = true
 project.workspace = true
-remote.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -68,7 +63,6 @@ zed_actions.workspace = true
 windows.workspace = true
 
 [dev-dependencies]
-call = { workspace = true, features = ["test-support"] }
 client = { workspace = true, features = ["test-support"] }
 dap = { workspace = true, features = ["test-support"] }
 db = { workspace = true, features = ["test-support"] }
@@ -77,7 +71,6 @@ gpui = { workspace = true, features = ["test-support"] }
 project = { workspace = true, features = ["test-support"] }
 session = { workspace = true, features = ["test-support"] }
 settings = { workspace = true, features = ["test-support"] }
-http_client = { workspace = true, features = ["test-support"] }
 pretty_assertions.workspace = true
 tempfile.workspace = true
 zlog.workspace = true

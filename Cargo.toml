@@ -1,62 +1,33 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/acp_tools",
-    "crates/acp_thread",
     "crates/action_log",
     "crates/activity_indicator",
-    "crates/agent",
-    "crates/agent_servers",
-    "crates/agent_settings",
-    "crates/agent_ui",
-    "crates/ai_onboarding",
-    "crates/anthropic",
     "crates/askpass",
     "crates/assets",
-    "crates/assistant_text_thread",
-    "crates/assistant_slash_command",
-    "crates/assistant_slash_commands",
-    "crates/audio",
     "crates/auto_update",
     "crates/auto_update_helper",
     "crates/auto_update_ui",
-    "crates/aws_http_client",
-    "crates/bedrock",
     "crates/breadcrumbs",
     "crates/buffer_diff",
-    "crates/call",
     "crates/channel",
     "crates/cli",
     "crates/client",
     "crates/clock",
-    "crates/cloud_api_client",
-    "crates/cloud_api_types",
-    "crates/cloud_llm_client",
-    "crates/cloud_zeta2_prompt",
-    "crates/collab",
-    "crates/collab_ui",
     "crates/collections",
     "crates/command_palette",
     "crates/command_palette_hooks",
     "crates/component",
     "crates/context_server",
-    "crates/copilot",
     "crates/crashes",
-    "crates/credentials_provider",
     "crates/dap",
     "crates/dap_adapters",
     "crates/db",
     "crates/debug_adapter_extension",
     "crates/debugger_tools",
     "crates/debugger_ui",
-    "crates/deepseek",
-    "crates/denoise",
     "crates/diagnostics",
     "crates/docs_preprocessor",
-    "crates/edit_prediction",
-    "crates/edit_prediction_button",
-    "crates/edit_prediction_context",
-    "crates/zeta2_tools",
     "crates/editor",
     "crates/eval",
     "crates/explorer_command_injector",
@@ -77,13 +48,10 @@ members = [
     "crates/git_hosting_providers",
     "crates/git_ui",
     "crates/go_to_line",
-    "crates/google_ai",
     "crates/gpui",
     "crates/gpui_macros",
     "crates/gpui_tokio",
     "crates/html_to_markdown",
-    "crates/http_client",
-    "crates/http_client_tls",
     "crates/icons",
     "crates/image_viewer",
     "crates/inspector_ui",
@@ -93,31 +61,23 @@ members = [
     "crates/keymap_editor",
     "crates/language",
     "crates/language_extension",
-    "crates/language_model",
-    "crates/language_models",
     "crates/language_onboarding",
     "crates/language_selector",
     "crates/language_tools",
     "crates/languages",
     "crates/line_ending_selector",
-    "crates/livekit_api",
-    "crates/livekit_client",
-    "crates/lmstudio",
     "crates/lsp",
     "crates/markdown",
     "crates/markdown_preview",
     "crates/media",
     "crates/menu",
     "crates/migrator",
-    "crates/mistral",
     "crates/multi_buffer",
     "crates/nc",
     "crates/net",
     "crates/node_runtime",
     "crates/notifications",
-    "crates/ollama",
     "crates/onboarding",
-    "crates/open_ai",
     "crates/open_router",
     "crates/outline",
     "crates/outline_panel",
@@ -128,21 +88,16 @@ members = [
     "crates/project",
     "crates/project_panel",
     "crates/project_symbols",
-    "crates/prompt_store",
     "crates/proto",
     "crates/recent_projects",
     "crates/refineable",
     "crates/refineable/derive_refineable",
     "crates/release_channel",
     "crates/scheduler",
-    "crates/remote",
-    "crates/remote_server",
     "crates/repl",
-    "crates/reqwest_client",
     "crates/rich_text",
     "crates/rope",
     "crates/rpc",
-    "crates/rules_library",
     "crates/schema_generator",
     "crates/search",
     "crates/semantic_version",
@@ -161,9 +116,6 @@ members = [
     "crates/storybook",
     "crates/streaming_diff",
     "crates/sum_tree",
-    "crates/supermaven",
-    "crates/supermaven_api",
-    "crates/codestral",
     "crates/svg_preview",
     "crates/system_specs",
     "crates/tab_switcher",
@@ -187,21 +139,14 @@ members = [
     "crates/ui_prompt",
     "crates/util",
     "crates/util_macros",
-    "crates/vercel",
     "crates/vim",
     "crates/vim_mode_setting",
     "crates/watch",
-    "crates/web_search",
-    "crates/web_search_providers",
     "crates/workspace",
     "crates/worktree",
-    "crates/x_ai",
     "crates/zed",
     "crates/zed_actions",
     "crates/zed_env_vars",
-    "crates/zeta",
-    "crates/zeta2",
-    "crates/zeta_cli",
     "crates/zlog",
     "crates/zlog_settings",
 
@@ -234,47 +179,24 @@ edition = "2024"
 # Workspace member crates
 #
 
-acp_tools = { path = "crates/acp_tools" }
-acp_thread = { path = "crates/acp_thread" }
 action_log = { path = "crates/action_log" }
-agent = { path = "crates/agent" }
 activity_indicator = { path = "crates/activity_indicator" }
-agent_ui = { path = "crates/agent_ui" }
-agent_settings = { path = "crates/agent_settings" }
-agent_servers = { path = "crates/agent_servers" }
-ai = { path = "crates/ai" }
-ai_onboarding = { path = "crates/ai_onboarding" }
-anthropic = { path = "crates/anthropic" }
 askpass = { path = "crates/askpass" }
 assets = { path = "crates/assets" }
-assistant_text_thread = { path = "crates/assistant_text_thread" }
-assistant_slash_command = { path = "crates/assistant_slash_command" }
-assistant_slash_commands = { path = "crates/assistant_slash_commands" }
-audio = { path = "crates/audio" }
 auto_update = { path = "crates/auto_update" }
 auto_update_helper = { path = "crates/auto_update_helper" }
 auto_update_ui = { path = "crates/auto_update_ui" }
-aws_http_client = { path = "crates/aws_http_client" }
-bedrock = { path = "crates/bedrock" }
 breadcrumbs = { path = "crates/breadcrumbs" }
 buffer_diff = { path = "crates/buffer_diff" }
-call = { path = "crates/call" }
 channel = { path = "crates/channel" }
 cli = { path = "crates/cli" }
 client = { path = "crates/client" }
 clock = { path = "crates/clock" }
-cloud_api_client = { path = "crates/cloud_api_client" }
-cloud_api_types = { path = "crates/cloud_api_types" }
-cloud_llm_client = { path = "crates/cloud_llm_client" }
-cloud_zeta2_prompt = { path = "crates/cloud_zeta2_prompt" }
-collab = { path = "crates/collab" }
-collab_ui = { path = "crates/collab_ui" }
 collections = { path = "crates/collections", version = "0.1.0" }
 command_palette = { path = "crates/command_palette" }
 command_palette_hooks = { path = "crates/command_palette_hooks" }
 component = { path = "crates/component" }
 context_server = { path = "crates/context_server" }
-copilot = { path = "crates/copilot" }
 crashes = { path = "crates/crashes" }
 credentials_provider = { path = "crates/credentials_provider" }
 crossbeam = "0.8.4"
@@ -284,7 +206,6 @@ db = { path = "crates/db" }
 debug_adapter_extension = { path = "crates/debug_adapter_extension" }
 debugger_tools = { path = "crates/debugger_tools" }
 debugger_ui = { path = "crates/debugger_ui" }
-deepseek = { path = "crates/deepseek" }
 derive_refineable = { path = "crates/refineable/derive_refineable" }
 diagnostics = { path = "crates/diagnostics" }
 editor = { path = "crates/editor" }
@@ -302,19 +223,12 @@ git = { path = "crates/git" }
 git_hosting_providers = { path = "crates/git_hosting_providers" }
 git_ui = { path = "crates/git_ui" }
 go_to_line = { path = "crates/go_to_line" }
-google_ai = { path = "crates/google_ai" }
 gpui = { path = "crates/gpui", default-features = false }
 gpui_macros = { path = "crates/gpui_macros" }
 gpui_tokio = { path = "crates/gpui_tokio" }
 html_to_markdown = { path = "crates/html_to_markdown" }
-http_client = { path = "crates/http_client" }
-http_client_tls = { path = "crates/http_client_tls" }
 icons = { path = "crates/icons" }
 image_viewer = { path = "crates/image_viewer" }
-edit_prediction = { path = "crates/edit_prediction" }
-edit_prediction_button = { path = "crates/edit_prediction_button" }
-edit_prediction_context = { path = "crates/edit_prediction_context" }
-zeta2_tools = { path = "crates/zeta2_tools" }
 inspector_ui = { path = "crates/inspector_ui" }
 install_cli = { path = "crates/install_cli" }
 journal = { path = "crates/journal" }
@@ -322,16 +236,11 @@ json_schema_store = { path = "crates/json_schema_store" }
 keymap_editor = { path = "crates/keymap_editor" }
 language = { path = "crates/language" }
 language_extension = { path = "crates/language_extension" }
-language_model = { path = "crates/language_model" }
-language_models = { path = "crates/language_models" }
 language_onboarding = { path = "crates/language_onboarding" }
 language_selector = { path = "crates/language_selector" }
 language_tools = { path = "crates/language_tools" }
 languages = { path = "crates/languages" }
 line_ending_selector = { path = "crates/line_ending_selector" }
-livekit_api = { path = "crates/livekit_api" }
-livekit_client = { path = "crates/livekit_client" }
-lmstudio = { path = "crates/lmstudio" }
 lsp = { path = "crates/lsp" }
 markdown = { path = "crates/markdown" }
 markdown_preview = { path = "crates/markdown_preview" }
@@ -339,15 +248,12 @@ svg_preview = { path = "crates/svg_preview" }
 media = { path = "crates/media" }
 menu = { path = "crates/menu" }
 migrator = { path = "crates/migrator" }
-mistral = { path = "crates/mistral" }
 multi_buffer = { path = "crates/multi_buffer" }
 nc = { path = "crates/nc" }
 net = { path = "crates/net" }
 node_runtime = { path = "crates/node_runtime" }
 notifications = { path = "crates/notifications" }
-ollama = { path = "crates/ollama" }
 onboarding = { path = "crates/onboarding" }
-open_ai = { path = "crates/open_ai" }
 open_router = { path = "crates/open_router", features = ["schemars"] }
 outline = { path = "crates/outline" }
 outline_panel = { path = "crates/outline_panel" }
@@ -362,21 +268,15 @@ settings_profile_selector = { path = "crates/settings_profile_selector" }
 project = { path = "crates/project" }
 project_panel = { path = "crates/project_panel" }
 project_symbols = { path = "crates/project_symbols" }
-prompt_store = { path = "crates/prompt_store" }
 proto = { path = "crates/proto" }
 recent_projects = { path = "crates/recent_projects" }
 refineable = { path = "crates/refineable" }
 release_channel = { path = "crates/release_channel" }
 scheduler = { path = "crates/scheduler" }
-remote = { path = "crates/remote" }
-remote_server = { path = "crates/remote_server" }
 repl = { path = "crates/repl" }
-reqwest_client = { path = "crates/reqwest_client" }
 rich_text = { path = "crates/rich_text" }
-rodio = { git = "https://github.com/RustAudio/rodio", rev ="e2074c6c2acf07b57cf717e076bdda7a9ac6e70b", features = ["wav", "playback", "wav_output", "recording"] }
 rope = { path = "crates/rope" }
 rpc = { path = "crates/rpc" }
-rules_library = { path = "crates/rules_library" }
 search = { path = "crates/search" }
 semantic_version = { path = "crates/semantic_version" }
 session = { path = "crates/session" }
@@ -393,9 +293,6 @@ story = { path = "crates/story" }
 storybook = { path = "crates/storybook" }
 streaming_diff = { path = "crates/streaming_diff" }
 sum_tree = { path = "crates/sum_tree" }
-supermaven = { path = "crates/supermaven" }
-supermaven_api = { path = "crates/supermaven_api" }
-codestral = { path = "crates/codestral" }
 system_specs = { path = "crates/system_specs" }
 tab_switcher = { path = "crates/tab_switcher" }
 task = { path = "crates/task" }
@@ -418,21 +315,15 @@ ui_macros = { path = "crates/ui_macros" }
 ui_prompt = { path = "crates/ui_prompt" }
 util = { path = "crates/util" }
 util_macros = { path = "crates/util_macros" }
-vercel = { path = "crates/vercel" }
 vim = { path = "crates/vim" }
 vim_mode_setting = { path = "crates/vim_mode_setting" }
 
 watch = { path = "crates/watch" }
-web_search = { path = "crates/web_search" }
-web_search_providers = { path = "crates/web_search_providers" }
 workspace = { path = "crates/workspace" }
 worktree = { path = "crates/worktree" }
-x_ai = { path = "crates/x_ai" }
 zed = { path = "crates/zed" }
 zed_actions = { path = "crates/zed_actions" }
 zed_env_vars = { path = "crates/zed_env_vars" }
-zeta = { path = "crates/zeta" }
-zeta2 = { path = "crates/zeta2" }
 zlog = { path = "crates/zlog" }
 zlog_settings = { path = "crates/zlog_settings" }
 
@@ -440,7 +331,6 @@ zlog_settings = { path = "crates/zlog_settings" }
 # External crates
 #
 
-agent-client-protocol = { version = "0.7.0", features = ["unstable"] }
 aho-corasick = "1.1"
 alacritty_terminal = "0.25.1-rc1"
 any_vec = "0.14"
@@ -459,15 +349,6 @@ async-task = "4.7"
 async-trait = "0.1"
 async-tungstenite = "0.31.0"
 async_zip = { version = "0.0.17", features = ["deflate", "deflate64"] }
-aws-config = { version = "1.6.1", features = ["behavior-version-latest"] }
-aws-credential-types = { version = "1.2.2", features = [
-    "hardcoded-credentials",
-] }
-aws-sdk-bedrockruntime = { version = "1.80.0", features = [
-    "behavior-version-latest",
-] }
-aws-smithy-runtime-api = { version = "1.7.4", features = ["http-1x", "client"] }
-aws-smithy-types = { version = "1.3.0", features = ["http-body-1-x"] }
 backtrace = "0.3"
 base64 = "0.22"
 bincode = "1.2.1"
@@ -489,7 +370,6 @@ convert_case = "0.8.0"
 core-foundation = "=0.10.0"
 core-foundation-sys = "0.8.6"
 core-video = { version = "0.4.3", features = ["metal"] }
-cpal = "0.16"
 crash-handler = "0.6"
 criterion = { version = "0.5", features = ["html_reports"] }
 ctor = "0.4.0"
@@ -605,24 +485,12 @@ rand = "0.9"
 rayon = "1.8"
 ref-cast = "1.0.24"
 regex = "1.5"
-# WARNING: If you change this, you must also publish a new version of zed-reqwest to crates.io
-reqwest = { git = "https://github.com/zed-industries/reqwest.git", rev = "c15662463bda39148ba154100dd44d3fba5873a4", default-features = false, features = [
-    "charset",
-    "http2",
-    "macos-system-configuration",
-    "multipart",
-    "rustls-tls-native-roots",
-    "socks",
-    "stream",
-], package = "zed-reqwest", version = "0.12.15-zed" }
 rsa = "0.9.6"
 runtimelib = {  git = "https://github.com/ConradIrwin/runtimed", rev = "7130c804216b6914355d15d0b91ea91f6babd734", default-features = false, features = [
     "async-dispatcher-runtime",
 ] }
 rust-embed = { version = "8.4", features = ["include-exclude"] }
 rustc-hash = "2.1.0"
-rustls = { version = "0.23.26" }
-rustls-platform-verifier = "0.5.0"
 # WARNING: If you change this, you must also publish a new version of zed-scap to crates.io
 scap = { git = "https://github.com/zed-industries/scap", rev = "4afea48c3b002197176fb19cd0f9b180dd36eaac", default-features = false, package = "zed-scap", version = "0.0.8-zed" }
 schemars = { version = "1.0", features = ["indexmap2"] }
@@ -656,7 +524,6 @@ sysinfo = "0.37.0"
 take-until = "0.2.0"
 tempfile = "3.20.0"
 thiserror = "2.0.12"
-tiktoken-rs = { git = "https://github.com/zed-industries/tiktoken-rs", rev = "30c32a4522751699adeda0d5840c71c3b75ae73d" }
 time = { version = "0.3", features = [
     "macros",
     "parsing",
@@ -664,12 +531,9 @@ time = { version = "0.3", features = [
     "serde-well-known",
     "formatting",
 ] }
-tiny_http = "0.8"
 tokio = { version = "1" }
-tokio-tungstenite = { version = "0.26", features = ["__rustls-tls"] }
 toml = "0.8"
 toml_edit = { version = "0.22", default-features = false, features = ["display", "parse", "serde"] }
-tower-http = "0.4.4"
 tree-sitter = { version = "0.25.10", features = ["wasm"] }
 tree-sitter-bash = "0.25.0"
 tree-sitter-c = "0.23"
@@ -809,21 +673,17 @@ feature_flags = { codegen-units = 1 }
 file_icons = { codegen-units = 1 }
 fsevent = { codegen-units = 1 }
 image_viewer = { codegen-units = 1 }
-edit_prediction_button = { codegen-units = 1 }
 install_cli = { codegen-units = 1 }
 journal = { codegen-units = 1 }
 json_schema_store = { codegen-units = 1 }
-lmstudio = { codegen-units = 1 }
 menu = { codegen-units = 1 }
 notifications = { codegen-units = 1 }
-ollama = { codegen-units = 1 }
 outline = { codegen-units = 1 }
 paths = { codegen-units = 1 }
 prettier = { codegen-units = 1 }
 project_symbols = { codegen-units = 1 }
 refineable = { codegen-units = 1 }
 release_channel = { codegen-units = 1 }
-reqwest_client = { codegen-units = 1 }
 rich_text = { codegen-units = 1 }
 semantic_version = { codegen-units = 1 }
 session = { codegen-units = 1 }
@@ -831,7 +691,6 @@ snippet = { codegen-units = 1 }
 snippets_ui = { codegen-units = 1 }
 sqlez_macros = { codegen-units = 1 }
 story = { codegen-units = 1 }
-supermaven_api = { codegen-units = 1 }
 telemetry_events = { codegen-units = 1 }
 theme_selector = { codegen-units = 1 }
 time_format = { codegen-units = 1 }

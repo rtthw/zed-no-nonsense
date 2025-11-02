@@ -9,7 +9,6 @@ mod quick_action_bar;
 #[cfg(target_os = "windows")]
 pub(crate) mod windows_only_instance;
 
-use agent_ui::{AgentDiffToolbar, AgentPanelDelegate};
 use anyhow::Context as _;
 pub use app_menus::*;
 use assets::Assets;
@@ -50,7 +49,6 @@ use paths::{
 };
 use project::{DirectoryLister, DisableAiSettings, ProjectItem};
 use project_panel::ProjectPanel;
-use prompt_store::PromptBuilder;
 use quick_action_bar::QuickActionBar;
 use recent_projects::open_remote_project;
 use release_channel::{AppCommitSha, ReleaseChannel};
@@ -594,7 +592,6 @@ fn show_software_emulation_warning_if_needed(
 }
 
 fn initialize_panels(
-    prompt_builder: Arc<PromptBuilder>,
     window: &mut Window,
     cx: &mut Context<Workspace>,
 ) {
@@ -637,74 +634,6 @@ fn initialize_panels(
             workspace.add_panel(channels_panel, window, cx);
             workspace.add_panel(notification_panel, window, cx);
             workspace.add_panel(debug_panel, window, cx);
-        })?;
-
-        fn setup_or_teardown_agent_panel(
-            workspace: &mut Workspace,
-            prompt_builder: Arc<PromptBuilder>,
-            window: &mut Window,
-            cx: &mut Context<Workspace>,
-        ) -> Task<anyhow::Result<()>> {
-            let disable_ai = SettingsStore::global(cx)
-                .get::<DisableAiSettings>(None)
-                .disable_ai
-                || cfg!(test);
-            let existing_panel = workspace.panel::<agent_ui::AgentPanel>(cx);
-            match (disable_ai, existing_panel) {
-                (false, None) => cx.spawn_in(window, async move |workspace, cx| {
-                    let panel =
-                        agent_ui::AgentPanel::load(workspace.clone(), prompt_builder, cx.clone())
-                            .await?;
-                    workspace.update_in(cx, |workspace, window, cx| {
-                        let disable_ai = SettingsStore::global(cx)
-                            .get::<DisableAiSettings>(None)
-                            .disable_ai;
-                        let have_panel = workspace.panel::<agent_ui::AgentPanel>(cx).is_some();
-                        if !disable_ai && !have_panel {
-                            workspace.add_panel(panel, window, cx);
-                        }
-                    })
-                }),
-                (true, Some(existing_panel)) => {
-                    workspace.remove_panel::<agent_ui::AgentPanel>(&existing_panel, window, cx);
-                    Task::ready(Ok(()))
-                }
-                _ => Task::ready(Ok(())),
-            }
-        }
-
-        workspace_handle
-            .update_in(cx, |workspace, window, cx| {
-                setup_or_teardown_agent_panel(workspace, prompt_builder.clone(), window, cx)
-            })?
-            .await?;
-
-        workspace_handle.update_in(cx, |workspace, window, cx| {
-            cx.observe_global_in::<SettingsStore>(window, {
-                let prompt_builder = prompt_builder.clone();
-                move |workspace, window, cx| {
-                    setup_or_teardown_agent_panel(workspace, prompt_builder.clone(), window, cx)
-                        .detach_and_log_err(cx);
-                }
-            })
-            .detach();
-
-            // Register the actions that are shared between `assistant` and `assistant2`.
-            //
-            // We need to do this here instead of within the individual `init`
-            // functions so that we only register the actions once.
-            //
-            // Once we ship `assistant2` we can push this back down into `agent::agent_panel::init`.
-            if !cfg!(test) {
-                <dyn AgentPanelDelegate>::set_global(
-                    Arc::new(agent_ui::ConcreteAssistantPanelDelegate),
-                    cx,
-                );
-
-                workspace
-                    .register_action(agent_ui::AgentPanel::toggle_focus)
-                    .register_action(agent_ui::InlineAssistant::inline_assist);
-            }
         })?;
 
         anyhow::Ok(())
@@ -1088,8 +1017,6 @@ fn initialize_pane(
             toolbar.add_item(lsp_log_item, window, cx);
             let dap_log_item = cx.new(|_| debugger_tools::DapLogToolbarItemView::new());
             toolbar.add_item(dap_log_item, window, cx);
-            let acp_tools_item = cx.new(|_| acp_tools::AcpToolsToolbarItemView::new());
-            toolbar.add_item(acp_tools_item, window, cx);
             let syntax_tree_item = cx.new(|_| language_tools::SyntaxTreeToolbarItemView::new());
             toolbar.add_item(syntax_tree_item, window, cx);
             let migration_banner = cx.new(|cx| MigrationBanner::new(workspace, cx));
@@ -1098,8 +1025,6 @@ fn initialize_pane(
             toolbar.add_item(project_diff_toolbar, window, cx);
             let commit_view_toolbar = cx.new(|cx| CommitViewToolbar::new(workspace, cx));
             toolbar.add_item(commit_view_toolbar, window, cx);
-            let agent_diff_toolbar = cx.new(AgentDiffToolbar::new);
-            toolbar.add_item(agent_diff_toolbar, window, cx);
             let basedpyright_banner = cx.new(|cx| BasedPyrightBanner::new(workspace, cx));
             toolbar.add_item(basedpyright_banner, window, cx);
         })
@@ -4830,31 +4755,12 @@ mod tests {
             command_palette::init(cx);
             language::init(cx);
             editor::init(cx);
-            collab_ui::init(&app_state, cx);
             git_ui::init(cx);
             project_panel::init(cx);
             outline_panel::init(cx);
             terminal_view::init(cx);
-            copilot::copilot_chat::init(
-                app_state.fs.clone(),
-                app_state.client.http_client(),
-                copilot::copilot_chat::CopilotChatConfiguration::default(),
-                cx,
-            );
             image_viewer::init(cx);
-            language_model::init(app_state.client.clone(), cx);
-            language_models::init(app_state.user_store.clone(), app_state.client.clone(), cx);
-            web_search::init(cx);
-            web_search_providers::init(app_state.client.clone(), cx);
-            let prompt_builder = PromptBuilder::load(app_state.fs.clone(), false, cx);
-            agent_ui::init(
-                app_state.fs.clone(),
-                app_state.client.clone(),
-                prompt_builder.clone(),
-                app_state.languages.clone(),
-                false,
-                cx,
-            );
+
             repl::init(app_state.fs.clone(), cx);
             repl::notebook::init(cx);
             tasks_ui::init(cx);

@@ -18,11 +18,6 @@ name = "explorer"
 path = "src/explorer.rs"
 
 [dependencies]
-acp_thread.workspace = true
-agent = { workspace = true, features = ["eval"] }
-agent-client-protocol.workspace = true
-agent_settings.workspace = true
-agent_ui.workspace = true
 anyhow.workspace = true
 async-trait.workspace = true
 buffer_diff.workspace = true
@@ -42,8 +37,6 @@ gpui_tokio.workspace = true
 handlebars.workspace = true
 language.workspace = true
 language_extension.workspace = true
-language_model.workspace = true
-language_models.workspace = true
 languages = { workspace = true, features = ["load-grammars"] }
 markdown.workspace = true
 node_runtime.workspace = true
@@ -51,11 +44,9 @@ pathdiff.workspace = true
 paths.workspace = true
 pretty_assertions.workspace = true
 project.workspace = true
-prompt_store.workspace = true
 regex.workspace = true
 rand.workspace = true
 release_channel.workspace = true
-reqwest_client.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 settings.workspace = true

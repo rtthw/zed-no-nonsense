@@ -48,7 +48,6 @@ fs.workspace = true
 git.workspace = true
 gpui.workspace = true
 indoc.workspace = true
-edit_prediction.workspace = true
 itertools.workspace = true
 language.workspace = true
 linkify.workspace = true
@@ -119,7 +118,6 @@ tree-sitter-bash.workspace = true
 unindent.workspace = true
 util = { workspace = true, features = ["test-support"] }
 workspace = { workspace = true, features = ["test-support"] }
-http_client = { workspace = true, features = ["test-support"] }
 zlog.workspace = true
 
 
