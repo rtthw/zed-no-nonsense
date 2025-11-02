@@ -5,20 +5,14 @@ members = [
     "crates/activity_indicator",
     "crates/askpass",
     "crates/assets",
-    "crates/auto_update",
-    "crates/auto_update_helper",
-    "crates/auto_update_ui",
     "crates/breadcrumbs",
     "crates/buffer_diff",
-    "crates/channel",
     "crates/cli",
     "crates/clock",
     "crates/collections",
     "crates/command_palette",
     "crates/command_palette_hooks",
     "crates/component",
-    "crates/context_server",
-    "crates/crashes",
     "crates/dap",
     "crates/dap_adapters",
     "crates/db",
@@ -26,17 +20,13 @@ members = [
     "crates/debugger_tools",
     "crates/debugger_ui",
     "crates/diagnostics",
-    "crates/docs_preprocessor",
     "crates/editor",
-    "crates/eval",
-    "crates/explorer_command_injector",
     "crates/extension",
     "crates/extension_api",
     "crates/extension_cli",
     "crates/extension_host",
     "crates/extensions_ui",
     "crates/feature_flags",
-    "crates/feedback",
     "crates/file_finder",
     "crates/file_icons",
     "crates/fs",
@@ -68,12 +58,9 @@ members = [
     "crates/lsp",
     "crates/markdown",
     "crates/markdown_preview",
-    "crates/media",
     "crates/menu",
     "crates/migrator",
     "crates/multi_buffer",
-    "crates/nc",
-    "crates/net",
     "crates/node_runtime",
     "crates/notifications",
     "crates/onboarding",
@@ -87,7 +74,6 @@ members = [
     "crates/project",
     "crates/project_panel",
     "crates/project_symbols",
-    "crates/proto",
     "crates/recent_projects",
     "crates/refineable",
     "crates/refineable/derive_refineable",
@@ -96,8 +82,6 @@ members = [
     "crates/repl",
     "crates/rich_text",
     "crates/rope",
-    "crates/rpc",
-    "crates/schema_generator",
     "crates/search",
     "crates/semantic_version",
     "crates/session",
@@ -113,15 +97,12 @@ members = [
     "crates/sqlez_macros",
     "crates/story",
     "crates/storybook",
-    "crates/streaming_diff",
     "crates/sum_tree",
     "crates/svg_preview",
     "crates/system_specs",
     "crates/tab_switcher",
     "crates/task",
     "crates/tasks_ui",
-    "crates/telemetry",
-    "crates/telemetry_events",
     "crates/terminal",
     "crates/terminal_view",
     "crates/text",
@@ -155,7 +136,6 @@ members = [
 
     "extensions/glsl",
     "extensions/html",
-    "extensions/proto",
     "extensions/slash-commands-example",
     "extensions/test-extension",
 
@@ -182,9 +162,6 @@ action_log = { path = "crates/action_log" }
 activity_indicator = { path = "crates/activity_indicator" }
 askpass = { path = "crates/askpass" }
 assets = { path = "crates/assets" }
-auto_update = { path = "crates/auto_update" }
-auto_update_helper = { path = "crates/auto_update_helper" }
-auto_update_ui = { path = "crates/auto_update_ui" }
 breadcrumbs = { path = "crates/breadcrumbs" }
 buffer_diff = { path = "crates/buffer_diff" }
 channel = { path = "crates/channel" }
@@ -194,7 +171,6 @@ collections = { path = "crates/collections", version = "0.1.0" }
 command_palette = { path = "crates/command_palette" }
 command_palette_hooks = { path = "crates/command_palette_hooks" }
 component = { path = "crates/component" }
-context_server = { path = "crates/context_server" }
 crashes = { path = "crates/crashes" }
 credentials_provider = { path = "crates/credentials_provider" }
 crossbeam = "0.8.4"
@@ -211,7 +187,6 @@ extension = { path = "crates/extension" }
 extension_host = { path = "crates/extension_host" }
 extensions_ui = { path = "crates/extensions_ui" }
 feature_flags = { path = "crates/feature_flags" }
-feedback = { path = "crates/feedback" }
 file_finder = { path = "crates/file_finder" }
 file_icons = { path = "crates/file_icons" }
 fs = { path = "crates/fs" }
@@ -243,16 +218,12 @@ lsp = { path = "crates/lsp" }
 markdown = { path = "crates/markdown" }
 markdown_preview = { path = "crates/markdown_preview" }
 svg_preview = { path = "crates/svg_preview" }
-media = { path = "crates/media" }
 menu = { path = "crates/menu" }
 migrator = { path = "crates/migrator" }
 multi_buffer = { path = "crates/multi_buffer" }
-nc = { path = "crates/nc" }
-net = { path = "crates/net" }
 node_runtime = { path = "crates/node_runtime" }
 notifications = { path = "crates/notifications" }
 onboarding = { path = "crates/onboarding" }
-open_router = { path = "crates/open_router", features = ["schemars"] }
 outline = { path = "crates/outline" }
 outline_panel = { path = "crates/outline_panel" }
 panel = { path = "crates/panel" }
@@ -266,7 +237,6 @@ settings_profile_selector = { path = "crates/settings_profile_selector" }
 project = { path = "crates/project" }
 project_panel = { path = "crates/project_panel" }
 project_symbols = { path = "crates/project_symbols" }
-proto = { path = "crates/proto" }
 recent_projects = { path = "crates/recent_projects" }
 refineable = { path = "crates/refineable" }
 release_channel = { path = "crates/release_channel" }
@@ -274,7 +244,6 @@ scheduler = { path = "crates/scheduler" }
 repl = { path = "crates/repl" }
 rich_text = { path = "crates/rich_text" }
 rope = { path = "crates/rope" }
-rpc = { path = "crates/rpc" }
 search = { path = "crates/search" }
 semantic_version = { path = "crates/semantic_version" }
 session = { path = "crates/session" }
@@ -289,14 +258,11 @@ sqlez = { path = "crates/sqlez" }
 sqlez_macros = { path = "crates/sqlez_macros" }
 story = { path = "crates/story" }
 storybook = { path = "crates/storybook" }
-streaming_diff = { path = "crates/streaming_diff" }
 sum_tree = { path = "crates/sum_tree" }
 system_specs = { path = "crates/system_specs" }
 tab_switcher = { path = "crates/tab_switcher" }
 task = { path = "crates/task" }
 tasks_ui = { path = "crates/tasks_ui" }
-telemetry = { path = "crates/telemetry" }
-telemetry_events = { path = "crates/telemetry_events" }
 terminal = { path = "crates/terminal" }
 terminal_view = { path = "crates/terminal_view" }
 text = { path = "crates/text" }
@@ -340,7 +306,7 @@ async-compression = { version = "0.4", features = ["gzip", "futures-io"] }
 async-dispatcher = "0.1"
 async-fs = "2.1"
 async-lock = "2.1"
-# async-pipe = { git = "https://github.com/zed-industries/async-pipe-rs", rev = "82d00a04211cf4e1236029aa03e6b6ce2a74c553" }
+async-pipe = { git = "https://github.com/zed-industries/async-pipe-rs", rev = "82d00a04211cf4e1236029aa03e6b6ce2a74c553" }
 async-recursion = "1.0.0"
 async-tar = "0.5.1"
 async-task = "4.7"
@@ -361,12 +327,12 @@ chrono = { version = "0.4", features = ["serde"] }
 # ciborium = "0.2"
 circular-buffer = "1.0"
 clap = { version = "4.4", features = ["derive"] }
-# cocoa = "=0.26.0"
-# cocoa-foundation = "=0.2.0"
+cocoa = "=0.26.0"
+cocoa-foundation = "=0.2.0"
 convert_case = "0.8.0"
-# core-foundation = "=0.10.0"
-# core-foundation-sys = "0.8.6"
-# core-video = { version = "0.4.3", features = ["metal"] }
+core-foundation = "=0.10.0"
+core-foundation-sys = "0.8.6"
+core-video = { version = "0.4.3", features = ["metal"] }
 crash-handler = "0.6"
 criterion = { version = "0.5", features = ["html_reports"] }
 ctor = "0.4.0"
@@ -375,13 +341,13 @@ dashmap = "6.0"
 derive_more = "0.99.17"
 dirs = "4.0"
 documented = "0.9.1"
-# dotenvy = "0.15.0"
+dotenvy = "0.15.0"
 ec4rs = "1.1"
 emojis = "0.6.1"
 env_logger = "0.11"
 exec = "0.3.1"
 fancy-regex = "0.14.0"
-# fork = "0.2.0"
+fork = "0.2.0"
 futures = "0.3"
 futures-batch = "0.6.1"
 futures-lite = "1.13"
@@ -411,44 +377,42 @@ libsqlite3-sys = { version = "0.30.1", features = ["bundled"] }
 linkify = "0.10.0"
 log = { version = "0.4.16", features = ["kv_unstable_serde", "serde"] }
 lsp-types = { git = "https://github.com/zed-industries/lsp-types", rev = "b71ab4eeb27d9758be8092020a46fe33fbca4e33" }
-mach2 = "0.5"
 markup5ever_rcdom = "0.3.0"
-# metal = "0.29"
 minidumper = "0.8"
 moka = { version = "0.12.10", features = ["sync"] }
 naga = { version = "25.0", features = ["wgsl-in"] }
 nanoid = "0.4"
 # nbformat = {  git = "https://github.com/ConradIrwin/runtimed", rev = "7130c804216b6914355d15d0b91ea91f6babd734" }
-# nix = "0.29"
+nix = "0.29"
 num-format = "0.4.4"
 num-traits = "0.2"
-# objc = "0.2"
-# objc2-foundation = { version = "=0.3.1", default-features = false, features = [
-#     "NSArray",
-#     "NSAttributedString",
-#     "NSBundle",
-#     "NSCoder",
-#     "NSData",
-#     "NSDate",
-#     "NSDictionary",
-#     "NSEnumerator",
-#     "NSError",
-#     "NSGeometry",
-#     "NSNotification",
-#     "NSNull",
-#     "NSObjCRuntime",
-#     "NSObject",
-#     "NSProcessInfo",
-#     "NSRange",
-#     "NSRunLoop",
-#     "NSString",
-#     "NSURL",
-#     "NSUndoManager",
-#     "NSValue",
-#     "objc2-core-foundation",
-#     "std"
-# ] }
-# open = "5.0.0"
+objc = "0.2"
+objc2-foundation = { version = "=0.3.1", default-features = false, features = [
+    "NSArray",
+    "NSAttributedString",
+    "NSBundle",
+    "NSCoder",
+    "NSData",
+    "NSDate",
+    "NSDictionary",
+    "NSEnumerator",
+    "NSError",
+    "NSGeometry",
+    "NSNotification",
+    "NSNull",
+    "NSObjCRuntime",
+    "NSObject",
+    "NSProcessInfo",
+    "NSRange",
+    "NSRunLoop",
+    "NSString",
+    "NSURL",
+    "NSUndoManager",
+    "NSValue",
+    "objc2-core-foundation",
+    "std"
+] }
+open = "5.0.0"
 ordered-float = "2.1.1"
 palette = { version = "0.7.5", default-features = false, features = ["std"] }
 parking_lot = "0.12.1"
@@ -484,8 +448,6 @@ rsa = "0.9.6"
 # ] }
 rust-embed = { version = "8.4", features = ["include-exclude"] }
 rustc-hash = "2.1.0"
-# WARNING: If you change this, you must also publish a new version of zed-scap to crates.io
-# scap = { git = "https://github.com/zed-industries/scap", rev = "4afea48c3b002197176fb19cd0f9b180dd36eaac", default-features = false, package = "zed-scap", version = "0.0.8-zed" }
 schemars = { version = "1.0", features = ["indexmap2"] }
 semver = "1.0"
 serde = { version = "1.0.221", features = ["derive", "rc"] }
@@ -558,21 +520,21 @@ url = "2.2"
 urlencoding = "2.1.2"
 uuid = { version = "1.1.2", features = ["v4", "v5", "v7", "serde"] }
 walkdir = "2.5"
-# wasm-encoder = "0.221"
-# wasmparser = "0.221"
-# wasmtime = { version = "29", default-features = false, features = [
-#     "async",
-#     "demangle",
-#     "runtime",
-#     "cranelift",
-#     "component-model",
-#     "incremental-cache",
-#     "parallel-compilation",
-# ] }
-# wasmtime-wasi = "29"
+wasm-encoder = "0.221"
+wasmparser = "0.221"
+wasmtime = { version = "29", default-features = false, features = [
+    "async",
+    "demangle",
+    "runtime",
+    "cranelift",
+    "component-model",
+    "incremental-cache",
+    "parallel-compilation",
+] }
+wasmtime-wasi = "29"
 which = "6.0.0"
-# windows-core = "0.61"
-# wit-component = "0.221"
+windows-core = "0.61"
+wit-component = "0.221"
 # yawc = "0.2.5"
 zeroize = "1.8"
 zstd = "0.11"
@@ -684,7 +646,6 @@ snippet = { codegen-units = 1 }
 snippets_ui = { codegen-units = 1 }
 sqlez_macros = { codegen-units = 1 }
 story = { codegen-units = 1 }
-telemetry_events = { codegen-units = 1 }
 theme_selector = { codegen-units = 1 }
 time_format = { codegen-units = 1 }
 ui_input = { codegen-units = 1 }

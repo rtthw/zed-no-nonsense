@@ -29,20 +29,6 @@ static CURRENT_DATA_DIR: OnceLock<PathBuf> = OnceLock::new();
 /// On Windows, this is `%APPDATA%\Zed`.
 static CONFIG_DIR: OnceLock<PathBuf> = OnceLock::new();
 
-/// Returns the relative path to the zed_server directory on the ssh host.
-pub fn remote_server_dir_relative() -> &'static RelPath {
-    static CACHED: LazyLock<&'static RelPath> =
-        LazyLock::new(|| RelPath::unix(".zed_server").unwrap());
-    *CACHED
-}
-
-/// Returns the relative path to the zed_wsl_server directory on the wsl host.
-pub fn remote_wsl_server_dir_relative() -> &'static RelPath {
-    static CACHED: LazyLock<&'static RelPath> =
-        LazyLock::new(|| RelPath::unix(".zed_wsl_server").unwrap());
-    *CACHED
-}
-
 /// Sets a custom directory for all user data, overriding the default data directory.
 /// This function must be called before any other path operations that depend on the data directory.
 /// The directory's path will be canonicalized to an absolute path by a blocking FS operation.
@@ -167,12 +153,6 @@ pub fn logs_dir() -> &'static PathBuf {
     })
 }
 
-/// Returns the path to the Zed server directory on this SSH host.
-pub fn remote_server_state_dir() -> &'static PathBuf {
-    static REMOTE_SERVER_STATE: OnceLock<PathBuf> = OnceLock::new();
-    REMOTE_SERVER_STATE.get_or_init(|| data_dir().join("server_state"))
-}
-
 /// Returns the path to the `Zed.log` file.
 pub fn log_file() -> &'static PathBuf {
     static LOG_FILE: OnceLock<PathBuf> = OnceLock::new();
@@ -255,22 +235,6 @@ pub fn extensions_dir() -> &'static PathBuf {
     EXTENSIONS_DIR.get_or_init(|| data_dir().join("extensions"))
 }
 
-/// Returns the path to the extensions directory.
-///
-/// This is where installed extensions are stored on a remote.
-pub fn remote_extensions_dir() -> &'static PathBuf {
-    static EXTENSIONS_DIR: OnceLock<PathBuf> = OnceLock::new();
-    EXTENSIONS_DIR.get_or_init(|| data_dir().join("remote_extensions"))
-}
-
-/// Returns the path to the extensions directory.
-///
-/// This is where installed extensions are stored on a remote.
-pub fn remote_extensions_uploads_dir() -> &'static PathBuf {
-    static UPLOAD_DIR: OnceLock<PathBuf> = OnceLock::new();
-    UPLOAD_DIR.get_or_init(|| remote_extensions_dir().join("uploads"))
-}
-
 /// Returns the path to the themes directory.
 ///
 /// This is where themes that are not provided by extensions are stored.
@@ -297,47 +261,6 @@ pub fn text_threads_dir() -> &'static PathBuf {
             data_dir().join("conversations")
         }
     })
-}
-
-/// Returns the path to the contexts directory.
-///
-/// This is where the prompts for use with the Assistant are stored.
-pub fn prompts_dir() -> &'static PathBuf {
-    static PROMPTS_DIR: OnceLock<PathBuf> = OnceLock::new();
-    PROMPTS_DIR.get_or_init(|| {
-        if cfg!(target_os = "macos") {
-            config_dir().join("prompts")
-        } else {
-            data_dir().join("prompts")
-        }
-    })
-}
-
-/// Returns the path to the prompt templates directory.
-///
-/// This is where the prompt templates for core features can be overridden with templates.
-///
-/// # Arguments
-///
-/// * `dev_mode` - If true, assumes the current working directory is the Zed repository.
-pub fn prompt_overrides_dir(repo_path: Option<&Path>) -> PathBuf {
-    if let Some(path) = repo_path {
-        let dev_path = path.join("assets").join("prompts");
-        if dev_path.exists() {
-            return dev_path;
-        }
-    }
-
-    static PROMPT_TEMPLATES_DIR: OnceLock<PathBuf> = OnceLock::new();
-    PROMPT_TEMPLATES_DIR
-        .get_or_init(|| {
-            if cfg!(target_os = "macos") {
-                config_dir().join("prompt_overrides")
-            } else {
-                data_dir().join("prompt_overrides")
-            }
-        })
-        .clone()
 }
 
 /// Returns the path to the semantic search's embeddings directory.
@@ -370,36 +293,10 @@ pub fn debug_adapters_dir() -> &'static PathBuf {
     DEBUG_ADAPTERS_DIR.get_or_init(|| data_dir().join("debug_adapters"))
 }
 
-/// Returns the path to the external agents directory
-///
-/// This is where agent servers are downloaded to
-pub fn external_agents_dir() -> &'static PathBuf {
-    static EXTERNAL_AGENTS_DIR: OnceLock<PathBuf> = OnceLock::new();
-    EXTERNAL_AGENTS_DIR.get_or_init(|| data_dir().join("external_agents"))
-}
-
-/// Returns the path to the Copilot directory.
-pub fn copilot_dir() -> &'static PathBuf {
-    static COPILOT_DIR: OnceLock<PathBuf> = OnceLock::new();
-    COPILOT_DIR.get_or_init(|| data_dir().join("copilot"))
-}
-
-/// Returns the path to the Supermaven directory.
-pub fn supermaven_dir() -> &'static PathBuf {
-    static SUPERMAVEN_DIR: OnceLock<PathBuf> = OnceLock::new();
-    SUPERMAVEN_DIR.get_or_init(|| data_dir().join("supermaven"))
-}
-
 /// Returns the path to the default Prettier directory.
 pub fn default_prettier_dir() -> &'static PathBuf {
     static DEFAULT_PRETTIER_DIR: OnceLock<PathBuf> = OnceLock::new();
     DEFAULT_PRETTIER_DIR.get_or_init(|| data_dir().join("prettier"))
-}
-
-/// Returns the path to the remote server binaries directory.
-pub fn remote_servers_dir() -> &'static PathBuf {
-    static REMOTE_SERVERS_DIR: OnceLock<PathBuf> = OnceLock::new();
-    REMOTE_SERVERS_DIR.get_or_init(|| data_dir().join("remote_servers"))
 }
 
 /// Returns the relative path to a `.zed` folder within a project.
@@ -504,12 +401,6 @@ fn vscode_user_data_paths() -> Vec<PathBuf> {
     for product_name in VSCODE_PRODUCT_NAMES {
         add_vscode_user_data_paths(&mut paths, product_name);
     }
-    paths
-}
-
-fn cursor_user_data_paths() -> Vec<PathBuf> {
-    let mut paths = Vec::new();
-    add_vscode_user_data_paths(&mut paths, "Cursor");
     paths
 }
 

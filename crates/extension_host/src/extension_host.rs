@@ -1208,9 +1208,6 @@ impl ExtensionStore {
                 }
             }
 
-            for server_id in extension.manifest.context_servers.keys() {
-                self.proxy.unregister_context_server(server_id.clone(), cx);
-            }
             for adapter in extension.manifest.debug_adapters.keys() {
                 self.proxy.unregister_debug_adapter(adapter.clone());
             }
