@@ -5,7 +5,6 @@ use gpui::{App, AppContext as _};
 use http_client::{self, HttpClient, HttpClientWithUrl};
 use project::Project;
 use proto::{CrashReport, GetCrashFilesResponse};
-use reqwest::multipart::{Form, Part};
 use settings::Settings;
 use smol::stream::StreamExt;
 use std::{ffi::OsStr, fs, sync::Arc};

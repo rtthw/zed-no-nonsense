@@ -2,7 +2,6 @@ use anyhow::{Context as _, Result, anyhow, bail};
 use async_compression::futures::bufread::GzipDecoder;
 use async_tar::Archive;
 use futures::{AsyncReadExt, FutureExt as _, channel::oneshot, future::Shared};
-use http_client::{HttpClient, Url};
 use log::Level;
 use semver::Version;
 use serde::Deserialize;
@@ -40,7 +39,6 @@ pub enum VersionStrategy<'a> {
 pub struct NodeRuntime(Arc<Mutex<NodeRuntimeState>>);
 
 struct NodeRuntimeState {
-    http: Arc<dyn HttpClient>,
     instance: Option<Box<dyn NodeRuntimeTrait>>,
     last_options: Option<NodeBinaryOptions>,
     options: watch::Receiver<Option<NodeBinaryOptions>>,
@@ -49,12 +47,10 @@ struct NodeRuntimeState {
 
 impl NodeRuntime {
     pub fn new(
-        http: Arc<dyn HttpClient>,
         shell_env_loaded: Option<oneshot::Receiver<()>>,
         options: watch::Receiver<Option<NodeBinaryOptions>>,
     ) -> Self {
         NodeRuntime(Arc::new(Mutex::new(NodeRuntimeState {
-            http,
             instance: None,
             last_options: None,
             options,
@@ -64,7 +60,6 @@ impl NodeRuntime {
 
     pub fn unavailable() -> Self {
         NodeRuntime(Arc::new(Mutex::new(NodeRuntimeState {
-            http: Arc::new(http_client::BlockedHttpClient),
             instance: None,
             last_options: None,
             options: watch::channel(Some(NodeBinaryOptions::default())).1,

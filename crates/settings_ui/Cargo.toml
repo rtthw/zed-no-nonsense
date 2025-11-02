@@ -46,7 +46,6 @@ zed_actions.workspace = true
 
 [dev-dependencies]
 assets.workspace = true
-client.workspace = true
 futures.workspace = true
 gpui = { workspace = true, features = ["test-support"] }
 language.workspace = true
