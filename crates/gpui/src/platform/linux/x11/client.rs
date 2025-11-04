@@ -866,8 +866,9 @@ impl X11Client {
                 if let Ok(file_list) = str::from_utf8(&reply.value) {
                     let paths: SmallVec<[_; 2]> = file_list
                         .lines()
-                        .filter_map(|path| Url::parse(path).log_err())
-                        .filter_map(|url| url.to_file_path().log_err())
+                        .map(|s| PathBuf::from(s))
+                        // .filter_map(|path| Url::parse(path).log_err())
+                        // .filter_map(|url| url.to_file_path().log_err())
                         .collect();
                     let input = PlatformInput::FileDrop(FileDropEvent::Entered {
                         position: state.xdnd_state.position,
@@ -1424,21 +1425,6 @@ impl LinuxClient for X11Client {
         Some(Rc::new(
             X11Display::new(&state.xcb_connection, state.scale_factor, id.0 as usize).ok()?,
         ))
-    }
-
-    #[cfg(feature = "screen-capture")]
-    fn is_screen_capture_supported(&self) -> bool {
-        true
-    }
-
-    #[cfg(feature = "screen-capture")]
-    fn screen_capture_sources(
-        &self,
-    ) -> futures::channel::oneshot::Receiver<anyhow::Result<Vec<Rc<dyn crate::ScreenCaptureSource>>>>
-    {
-        crate::platform::scap_screen_capture::scap_screen_sources(
-            &self.0.borrow().common.foreground_executor,
-        )
     }
 
     fn open_window(

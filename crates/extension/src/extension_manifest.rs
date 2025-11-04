@@ -85,10 +85,6 @@ pub struct ExtensionManifest {
     pub snippets: Option<PathBuf>,
     #[serde(default)]
     pub capabilities: Vec<ExtensionCapability>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub debug_adapters: BTreeMap<Arc<str>, DebugAdapterManifestEntry>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub debug_locators: BTreeMap<Arc<str>, DebugLocatorManifestEntry>,
 }
 
 impl ExtensionManifest {
@@ -115,52 +111,13 @@ impl ExtensionManifest {
 
     pub fn allow_remote_load(&self) -> bool {
         !self.language_servers.is_empty()
-            || !self.debug_adapters.is_empty()
-            || !self.debug_locators.is_empty()
     }
-}
-
-pub fn build_debug_adapter_schema_path(
-    adapter_name: &Arc<str>,
-    meta: &DebugAdapterManifestEntry,
-) -> PathBuf {
-    meta.schema_path.clone().unwrap_or_else(|| {
-        Path::new("debug_adapter_schemas")
-            .join(Path::new(adapter_name.as_ref()).with_extension("json"))
-    })
 }
 
 #[derive(Clone, Default, PartialEq, Eq, Debug, Deserialize, Serialize)]
 pub struct LibManifestEntry {
     pub kind: Option<ExtensionLibraryKind>,
     pub version: Option<SemanticVersion>,
-}
-
-#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
-pub struct AgentServerManifestEntry {
-    /// Display name for the agent (shown in menus).
-    pub name: String,
-    /// Environment variables to set when launching the agent server.
-    #[serde(default)]
-    pub env: HashMap<String, String>,
-    /// Optional icon path (relative to extension root, e.g., "ai.svg").
-    /// Should be a small SVG icon for display in menus.
-    #[serde(default)]
-    pub icon: Option<String>,
-    /// Per-target configuration for archive-based installation.
-    /// The key format is "{os}-{arch}" where:
-    /// - os: "darwin" (macOS), "linux", "windows"
-    /// - arch: "aarch64" (arm64), "x86_64"
-    ///
-    /// Example:
-    /// ```toml
-    /// [agent_servers.myagent.targets.darwin-aarch64]
-    /// archive = "https://example.com/myagent-darwin-arm64.zip"
-    /// cmd = "./myagent"
-    /// args = ["--serve"]
-    /// sha256 = "abc123..."  # optional
-    /// ```
-    pub targets: HashMap<String, TargetConfig>,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
@@ -233,14 +190,6 @@ pub struct SlashCommandManifestEntry {
     pub requires_argument: bool,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
-pub struct DebugAdapterManifestEntry {
-    pub schema_path: Option<PathBuf>,
-}
-
-#[derive(Clone, PartialEq, Eq, Debug, Deserialize, Serialize)]
-pub struct DebugLocatorManifestEntry {}
-
 impl ExtensionManifest {
     pub async fn load(fs: Arc<dyn Fs>, extension_dir: &Path) -> Result<Self> {
         let extension_name = extension_dir
@@ -308,8 +257,6 @@ fn manifest_from_old_manifest(
         slash_commands: BTreeMap::default(),
         snippets: None,
         capabilities: Vec::new(),
-        debug_adapters: Default::default(),
-        debug_locators: Default::default(),
     }
 }
 
@@ -339,32 +286,7 @@ mod tests {
             slash_commands: BTreeMap::default(),
             snippets: None,
             capabilities: vec![],
-            debug_adapters: Default::default(),
-            debug_locators: Default::default(),
         }
-    }
-
-    #[test]
-    fn test_build_adapter_schema_path_with_schema_path() {
-        let adapter_name = Arc::from("my_adapter");
-        let entry = DebugAdapterManifestEntry {
-            schema_path: Some(PathBuf::from("foo/bar")),
-        };
-
-        let path = build_debug_adapter_schema_path(&adapter_name, &entry);
-        assert_eq!(path, PathBuf::from("foo/bar"));
-    }
-
-    #[test]
-    fn test_build_adapter_schema_path_without_schema_path() {
-        let adapter_name = Arc::from("my_adapter");
-        let entry = DebugAdapterManifestEntry { schema_path: None };
-
-        let path = build_debug_adapter_schema_path(&adapter_name, &entry);
-        assert_eq!(
-            path,
-            PathBuf::from("debug_adapter_schemas").join("my_adapter.json")
-        );
     }
 
     #[test]
@@ -441,32 +363,5 @@ mod tests {
                 .is_ok()
         );
         assert!(manifest.allow_exec("docker", &["ps"]).is_err()); // wrong first arg
-    }
-    #[test]
-    fn parse_manifest_with_agent_server_archive_launcher() {
-        let toml_src = r#"
-id = "example.agent-server-ext"
-name = "Agent Server Example"
-version = "1.0.0"
-schema_version = 0
-
-[agent_servers.foo]
-name = "Foo Agent"
-
-[agent_servers.foo.targets.linux-x86_64]
-archive = "https://example.com/agent-linux-x64.tar.gz"
-cmd = "./agent"
-args = ["--serve"]
-"#;
-
-        let manifest: ExtensionManifest = toml::from_str(toml_src).expect("manifest should parse");
-        assert_eq!(manifest.id.as_ref(), "example.agent-server-ext");
-        assert!(manifest.agent_servers.contains_key("foo"));
-        let entry = manifest.agent_servers.get("foo").unwrap();
-        assert!(entry.targets.contains_key("linux-x86_64"));
-        let target = entry.targets.get("linux-x86_64").unwrap();
-        assert_eq!(target.archive, "https://example.com/agent-linux-x64.tar.gz");
-        assert_eq!(target.cmd, "./agent");
-        assert_eq!(target.args, vec!["--serve"]);
     }
 }

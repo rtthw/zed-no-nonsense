@@ -13,7 +13,6 @@ mod language_registry;
 pub mod language_settings;
 mod manifest;
 mod outline;
-pub mod proto;
 mod syntax_map;
 mod task_context;
 mod text_diff;
@@ -30,7 +29,6 @@ use collections::{HashMap, HashSet, IndexSet};
 use futures::Future;
 use gpui::{App, AsyncApp, Entity, SharedString};
 pub use highlight_map::HighlightMap;
-use http_client::HttpClient;
 pub use language_registry::{
     LanguageName, LanguageServerStatusUpdate, LoadedLanguage, ServerHealth,
 };
@@ -295,17 +293,11 @@ impl CachedLspAdapter {
 #[async_trait]
 pub trait LspAdapterDelegate: Send + Sync {
     fn show_notification(&self, message: &str, cx: &mut App);
-    fn http_client(&self) -> Arc<dyn HttpClient>;
     fn worktree_id(&self) -> WorktreeId;
     fn worktree_root_path(&self) -> &Path;
     fn update_status(&self, language: LanguageServerName, status: BinaryStatus);
     fn registered_lsp_adapters(&self) -> Vec<Arc<dyn LspAdapter>>;
     async fn language_server_download_dir(&self, name: &LanguageServerName) -> Option<Arc<Path>>;
-
-    async fn npm_package_installed_version(
-        &self,
-        package_name: &str,
-    ) -> Result<Option<(PathBuf, String)>>;
     async fn which(&self, command: &OsStr) -> Option<PathBuf>;
     async fn shell_env(&self) -> HashMap<String, String>;
     async fn read_text_file(&self, path: &RelPath) -> Result<String>;

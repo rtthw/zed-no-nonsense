@@ -3,7 +3,6 @@ resolver = "2"
 members = [
     "crates/action_log",
     "crates/activity_indicator",
-    "crates/askpass",
     "crates/assets",
     "crates/breadcrumbs",
     "crates/buffer_diff",
@@ -13,12 +12,7 @@ members = [
     "crates/command_palette",
     "crates/command_palette_hooks",
     "crates/component",
-    "crates/dap",
-    "crates/dap_adapters",
     "crates/db",
-    "crates/debug_adapter_extension",
-    "crates/debugger_tools",
-    "crates/debugger_ui",
     "crates/diagnostics",
     "crates/editor",
     "crates/extension",
@@ -34,7 +28,6 @@ members = [
     "crates/fsevent",
     "crates/fuzzy",
     "crates/git",
-    "crates/git_hosting_providers",
     "crates/git_ui",
     "crates/go_to_line",
     "crates/gpui",
@@ -61,7 +54,6 @@ members = [
     "crates/menu",
     "crates/migrator",
     "crates/multi_buffer",
-    "crates/node_runtime",
     "crates/notifications",
     "crates/onboarding",
     "crates/outline",
@@ -152,7 +144,6 @@ edition = "2024"
 
 action_log = { path = "crates/action_log" }
 activity_indicator = { path = "crates/activity_indicator" }
-askpass = { path = "crates/askpass" }
 assets = { path = "crates/assets" }
 breadcrumbs = { path = "crates/breadcrumbs" }
 buffer_diff = { path = "crates/buffer_diff" }
@@ -164,12 +155,7 @@ command_palette_hooks = { path = "crates/command_palette_hooks" }
 component = { path = "crates/component" }
 credentials_provider = { path = "crates/credentials_provider" }
 crossbeam = "0.8.4"
-dap = { path = "crates/dap" }
-dap_adapters = { path = "crates/dap_adapters" }
 db = { path = "crates/db" }
-debug_adapter_extension = { path = "crates/debug_adapter_extension" }
-debugger_tools = { path = "crates/debugger_tools" }
-debugger_ui = { path = "crates/debugger_ui" }
 derive_refineable = { path = "crates/refineable/derive_refineable" }
 diagnostics = { path = "crates/diagnostics" }
 editor = { path = "crates/editor" }
@@ -183,7 +169,6 @@ fs = { path = "crates/fs" }
 fsevent = { path = "crates/fsevent" }
 fuzzy = { path = "crates/fuzzy" }
 git = { path = "crates/git" }
-git_hosting_providers = { path = "crates/git_hosting_providers" }
 git_ui = { path = "crates/git_ui" }
 go_to_line = { path = "crates/go_to_line" }
 gpui = { path = "crates/gpui", default-features = false }
@@ -211,7 +196,6 @@ svg_preview = { path = "crates/svg_preview" }
 menu = { path = "crates/menu" }
 migrator = { path = "crates/migrator" }
 multi_buffer = { path = "crates/multi_buffer" }
-node_runtime = { path = "crates/node_runtime" }
 notifications = { path = "crates/notifications" }
 onboarding = { path = "crates/onboarding" }
 outline = { path = "crates/outline" }
@@ -325,7 +309,6 @@ core-video = { version = "0.4.3", features = ["metal"] }
 crash-handler = "0.6"
 criterion = { version = "0.5", features = ["html_reports"] }
 ctor = "0.4.0"
-dap-types = { git = "https://github.com/zed-industries/dap-types", rev = "1b461b310481d01e02b2603c16d7144b926339f8" }
 dashmap = "6.0"
 derive_more = "0.99.17"
 dirs = "4.0"

@@ -213,12 +213,6 @@ fn main() -> Result<()> {
     }
     let args = Args::parse();
 
-    // `zed --askpass` Makes zed operate in nc/netcat mode for use with askpass
-    if let Some(socket) = &args.askpass {
-        askpass::main(socket);
-        return Ok(());
-    }
-
     // Set custom data directory before any path operations
     let user_data_dir = args.user_data_dir.clone();
     if let Some(dir) = &user_data_dir {

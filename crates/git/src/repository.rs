@@ -6,7 +6,7 @@ use anyhow::{Context as _, Result, anyhow, bail};
 use collections::HashMap;
 use futures::future::BoxFuture;
 use futures::io::BufWriter;
-use futures::{AsyncWriteExt, FutureExt as _, select_biased};
+use futures::{AsyncWriteExt, FutureExt as _};
 use git2::BranchType;
 use gpui::{AppContext as _, AsyncApp, BackgroundExecutor, SharedString, Task};
 use parking_lot::Mutex;
@@ -30,8 +30,6 @@ use util::paths::PathStyle;
 use util::rel_path::RelPath;
 use util::{ResultExt, paths};
 use uuid::Uuid;
-
-pub use askpass::{AskPassDelegate, AskPassResult, AskPassSession};
 
 pub const REMOTE_CANCELLED_BY_USER: &str = "Operation cancelled by user";
 
@@ -469,7 +467,6 @@ pub trait GitRepository: Send + Sync {
         branch_name: String,
         upstream_name: String,
         options: Option<PushOptions>,
-        askpass: AskPassDelegate,
         env: Arc<HashMap<String, String>>,
         // This method takes an AsyncApp to ensure it's invoked on the main thread,
         // otherwise git-credentials-manager won't work.
@@ -480,7 +477,6 @@ pub trait GitRepository: Send + Sync {
         &self,
         branch_name: String,
         upstream_name: String,
-        askpass: AskPassDelegate,
         env: Arc<HashMap<String, String>>,
         // This method takes an AsyncApp to ensure it's invoked on the main thread,
         // otherwise git-credentials-manager won't work.
@@ -490,7 +486,6 @@ pub trait GitRepository: Send + Sync {
     fn fetch(
         &self,
         fetch_options: FetchOptions,
-        askpass: AskPassDelegate,
         env: Arc<HashMap<String, String>>,
         // This method takes an AsyncApp to ensure it's invoked on the main thread,
         // otherwise git-credentials-manager won't work.
@@ -1543,12 +1538,10 @@ impl GitRepository for RealGitRepository {
         branch_name: String,
         remote_name: String,
         options: Option<PushOptions>,
-        ask_pass: AskPassDelegate,
         env: Arc<HashMap<String, String>>,
-        cx: AsyncApp,
+        _cx: AsyncApp,
     ) -> BoxFuture<'_, Result<RemoteCommandOutput>> {
         let working_directory = self.working_directory();
-        let executor = cx.background_executor().clone();
         let git_binary_path = self.system_git_binary_path.clone();
         async move {
             let git_binary_path = git_binary_path.context("git not found on $PATH, can't push")?;
@@ -1568,7 +1561,7 @@ impl GitRepository for RealGitRepository {
                 .stdout(smol::process::Stdio::piped())
                 .stderr(smol::process::Stdio::piped());
 
-            run_git_command(env, ask_pass, command, &executor).await
+            run_git_command(command).await
         }
         .boxed()
     }
@@ -1577,12 +1570,10 @@ impl GitRepository for RealGitRepository {
         &self,
         branch_name: String,
         remote_name: String,
-        ask_pass: AskPassDelegate,
         env: Arc<HashMap<String, String>>,
-        cx: AsyncApp,
+        _cx: AsyncApp,
     ) -> BoxFuture<'_, Result<RemoteCommandOutput>> {
         let working_directory = self.working_directory();
-        let executor = cx.background_executor().clone();
         let git_binary_path = self.system_git_binary_path.clone();
         async move {
             let git_binary_path = git_binary_path.context("git not found on $PATH, can't pull")?;
@@ -1596,7 +1587,7 @@ impl GitRepository for RealGitRepository {
                 .stdout(smol::process::Stdio::piped())
                 .stderr(smol::process::Stdio::piped());
 
-            run_git_command(env, ask_pass, command, &executor).await
+            run_git_command(command).await
         }
         .boxed()
     }
@@ -1604,14 +1595,12 @@ impl GitRepository for RealGitRepository {
     fn fetch(
         &self,
         fetch_options: FetchOptions,
-        ask_pass: AskPassDelegate,
         env: Arc<HashMap<String, String>>,
-        cx: AsyncApp,
+        _cx: AsyncApp,
     ) -> BoxFuture<'_, Result<RemoteCommandOutput>> {
         let working_directory = self.working_directory();
         let remote_name = format!("{}", fetch_options);
         let git_binary_path = self.system_git_binary_path.clone();
-        let executor = cx.background_executor().clone();
         async move {
             let git_binary_path = git_binary_path.context("git not found on $PATH, can't fetch")?;
             let mut command = new_smol_command(git_binary_path);
@@ -1622,7 +1611,7 @@ impl GitRepository for RealGitRepository {
                 .stdout(smol::process::Stdio::piped())
                 .stderr(smol::process::Stdio::piped());
 
-            run_git_command(env, ask_pass, command, &executor).await
+            run_git_command(command).await
         }
         .boxed()
     }
@@ -2109,64 +2098,18 @@ struct GitBinaryCommandError {
     status: ExitStatus,
 }
 
-async fn run_git_command(
-    env: Arc<HashMap<String, String>>,
-    ask_pass: AskPassDelegate,
-    mut command: smol::process::Command,
-    executor: &BackgroundExecutor,
-) -> Result<RemoteCommandOutput> {
-    if env.contains_key("GIT_ASKPASS") {
-        let git_process = command.spawn()?;
-        let output = git_process.output().await?;
-        anyhow::ensure!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
-        Ok(RemoteCommandOutput {
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        })
-    } else {
-        let ask_pass = AskPassSession::new(executor, ask_pass).await?;
-        command
-            .env("GIT_ASKPASS", ask_pass.script_path())
-            .env("SSH_ASKPASS", ask_pass.script_path())
-            .env("SSH_ASKPASS_REQUIRE", "force");
-        let git_process = command.spawn()?;
-
-        run_askpass_command(ask_pass, git_process).await
-    }
-}
-
-async fn run_askpass_command(
-    mut ask_pass: AskPassSession,
-    git_process: smol::process::Child,
-) -> anyhow::Result<RemoteCommandOutput> {
-    select_biased! {
-        result = ask_pass.run().fuse() => {
-            match result {
-                AskPassResult::CancelledByUser => {
-                    Err(anyhow!(REMOTE_CANCELLED_BY_USER))?
-                }
-                AskPassResult::Timedout => {
-                    Err(anyhow!("Connecting to host timed out"))?
-                }
-            }
-        }
-        output = git_process.output().fuse() => {
-            let output = output?;
-            anyhow::ensure!(
-                output.status.success(),
-                "{}",
-                String::from_utf8_lossy(&output.stderr)
-            );
-            Ok(RemoteCommandOutput {
-                stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-            })
-        }
-    }
+async fn run_git_command(mut command: smol::process::Command) -> Result<RemoteCommandOutput> {
+    let git_process = command.spawn()?;
+    let output = git_process.output().await?;
+    anyhow::ensure!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(RemoteCommandOutput {
+        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+    })
 }
 
 #[derive(Clone, Debug, Ord, Hash, PartialOrd, Eq, PartialEq)]

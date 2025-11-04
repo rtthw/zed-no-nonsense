@@ -242,18 +242,6 @@ impl MTime {
     }
 }
 
-impl From<proto::Timestamp> for MTime {
-    fn from(timestamp: proto::Timestamp) -> Self {
-        MTime(timestamp.into())
-    }
-}
-
-impl From<MTime> for proto::Timestamp {
-    fn from(mtime: MTime) -> Self {
-        mtime.0.into()
-    }
-}
-
 pub struct RealFs {
     bundled_git_binary_path: Option<PathBuf>,
     executor: BackgroundExecutor,

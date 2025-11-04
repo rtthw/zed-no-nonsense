@@ -2,7 +2,7 @@ use crate::*;
 use anyhow::{Context as _, Result, anyhow};
 use collections::HashMap;
 use fs::Fs;
-use paths::{cursor_settings_file_paths, vscode_settings_file_paths};
+use paths::vscode_settings_file_paths;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 use std::{
@@ -14,14 +14,12 @@ use std::{
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum VsCodeSettingsSource {
     VsCode,
-    Cursor,
 }
 
 impl std::fmt::Display for VsCodeSettingsSource {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             VsCodeSettingsSource::VsCode => write!(f, "VS Code"),
-            VsCodeSettingsSource::Cursor => write!(f, "Cursor"),
         }
     }
 }
@@ -45,7 +43,6 @@ impl VsCodeSettings {
     pub async fn load_user_settings(source: VsCodeSettingsSource, fs: Arc<dyn Fs>) -> Result<Self> {
         let candidate_paths = match source {
             VsCodeSettingsSource::VsCode => vscode_settings_file_paths(),
-            VsCodeSettingsSource::Cursor => cursor_settings_file_paths(),
         };
         let mut path = None;
         for candidate_path in candidate_paths.iter() {

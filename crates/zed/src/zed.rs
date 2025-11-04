@@ -12,7 +12,6 @@ pub(crate) mod windows_only_instance;
 use anyhow::Context as _;
 pub use app_menus::*;
 use assets::Assets;
-use audio::{AudioSettings, REPLAY_DURATION};
 use breadcrumbs::Breadcrumbs;
 use client::zed_urls;
 use collections::VecDeque;

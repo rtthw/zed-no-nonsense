@@ -48,7 +48,6 @@ assets.workspace = true
 futures.workspace = true
 gpui = { workspace = true, features = ["test-support"] }
 language.workspace = true
-node_runtime.workspace = true
 paths.workspace = true
 pretty_assertions.workspace = true
 session.workspace = true

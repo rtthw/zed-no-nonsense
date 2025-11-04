@@ -16,7 +16,6 @@ test-support = ["rand"]
 
 [dependencies]
 anyhow.workspace = true
-askpass.workspace = true
 async-trait.workspace = true
 collections.workspace = true
 derive_more.workspace = true

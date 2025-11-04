@@ -27,7 +27,6 @@ pub struct ExtensionHostProxy {
     language_server_proxy: RwLock<Option<Arc<dyn ExtensionLanguageServerProxy>>>,
     snippet_proxy: RwLock<Option<Arc<dyn ExtensionSnippetProxy>>>,
     slash_command_proxy: RwLock<Option<Arc<dyn ExtensionSlashCommandProxy>>>,
-    debug_adapter_provider_proxy: RwLock<Option<Arc<dyn ExtensionDebugAdapterProviderProxy>>>,
 }
 
 impl ExtensionHostProxy {
@@ -51,7 +50,6 @@ impl ExtensionHostProxy {
             language_server_proxy: RwLock::default(),
             snippet_proxy: RwLock::default(),
             slash_command_proxy: RwLock::default(),
-            debug_adapter_provider_proxy: RwLock::default(),
         }
     }
 
@@ -77,12 +75,6 @@ impl ExtensionHostProxy {
 
     pub fn register_slash_command_proxy(&self, proxy: impl ExtensionSlashCommandProxy) {
         self.slash_command_proxy.write().replace(Arc::new(proxy));
-    }
-
-    pub fn register_debug_adapter_proxy(&self, proxy: impl ExtensionDebugAdapterProviderProxy) {
-        self.debug_adapter_provider_proxy
-            .write()
-            .replace(Arc::new(proxy));
     }
 }
 
@@ -389,54 +381,5 @@ impl ExtensionContextServerProxy for ExtensionHostProxy {
         };
 
         proxy.unregister_context_server(server_id, cx)
-    }
-}
-
-pub trait ExtensionDebugAdapterProviderProxy: Send + Sync + 'static {
-    fn register_debug_adapter(
-        &self,
-        extension: Arc<dyn Extension>,
-        debug_adapter_name: Arc<str>,
-        schema_path: &Path,
-    );
-    fn register_debug_locator(&self, extension: Arc<dyn Extension>, locator_name: Arc<str>);
-    fn unregister_debug_adapter(&self, debug_adapter_name: Arc<str>);
-    fn unregister_debug_locator(&self, locator_name: Arc<str>);
-}
-
-impl ExtensionDebugAdapterProviderProxy for ExtensionHostProxy {
-    fn register_debug_adapter(
-        &self,
-        extension: Arc<dyn Extension>,
-        debug_adapter_name: Arc<str>,
-        schema_path: &Path,
-    ) {
-        let Some(proxy) = self.debug_adapter_provider_proxy.read().clone() else {
-            return;
-        };
-
-        proxy.register_debug_adapter(extension, debug_adapter_name, schema_path)
-    }
-
-    fn register_debug_locator(&self, extension: Arc<dyn Extension>, locator_name: Arc<str>) {
-        let Some(proxy) = self.debug_adapter_provider_proxy.read().clone() else {
-            return;
-        };
-
-        proxy.register_debug_locator(extension, locator_name)
-    }
-    fn unregister_debug_adapter(&self, debug_adapter_name: Arc<str>) {
-        let Some(proxy) = self.debug_adapter_provider_proxy.read().clone() else {
-            return;
-        };
-
-        proxy.unregister_debug_adapter(debug_adapter_name)
-    }
-    fn unregister_debug_locator(&self, locator_name: Arc<str>) {
-        let Some(proxy) = self.debug_adapter_provider_proxy.read().clone() else {
-            return;
-        };
-
-        proxy.unregister_debug_locator(locator_name)
     }
 }

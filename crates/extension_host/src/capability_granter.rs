@@ -109,8 +109,6 @@ mod tests {
             slash_commands: BTreeMap::default(),
             snippets: None,
             capabilities: vec![],
-            debug_adapters: Default::default(),
-            debug_locators: Default::default(),
         }
     }
 

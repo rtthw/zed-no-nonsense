@@ -285,14 +285,6 @@ pub fn languages_dir() -> &'static PathBuf {
     LANGUAGES_DIR.get_or_init(|| data_dir().join("languages"))
 }
 
-/// Returns the path to the debug adapters directory
-///
-/// This is where debug adapters are downloaded to for DAPs that are built-in to Zed.
-pub fn debug_adapters_dir() -> &'static PathBuf {
-    static DEBUG_ADAPTERS_DIR: OnceLock<PathBuf> = OnceLock::new();
-    DEBUG_ADAPTERS_DIR.get_or_init(|| data_dir().join("debug_adapters"))
-}
-
 /// Returns the path to the default Prettier directory.
 pub fn default_prettier_dir() -> &'static PathBuf {
     static DEFAULT_PRETTIER_DIR: OnceLock<PathBuf> = OnceLock::new();
@@ -364,15 +356,6 @@ pub fn global_ssh_config_file() -> &'static Path {
 /// Returns candidate paths for the vscode user settings file
 pub fn vscode_settings_file_paths() -> Vec<PathBuf> {
     let mut paths = vscode_user_data_paths();
-    for path in paths.iter_mut() {
-        path.push("User/settings.json");
-    }
-    paths
-}
-
-/// Returns candidate paths for the cursor user settings file
-pub fn cursor_settings_file_paths() -> Vec<PathBuf> {
-    let mut paths = cursor_user_data_paths();
     for path in paths.iter_mut() {
         path.push("User/settings.json");
     }

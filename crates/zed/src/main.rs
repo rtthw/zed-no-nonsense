@@ -1,12 +1,10 @@
 mod reliability;
 mod zed;
 
-use agent_ui::AgentPanel;
 use anyhow::{Context as _, Error, Result};
 use clap::{Parser, command};
 use cli::FORCE_CLI_MODE_ENV_VAR_NAME;
 use collections::HashMap;
-use crashes::InitCrashHandler;
 use db::kvp::{GLOBAL_KEY_VALUE_STORE, KEY_VALUE_STORE};
 use editor::Editor;
 use extension::ExtensionHostProxy;
@@ -23,7 +21,6 @@ use remote::RemoteConnectionOptions;
 use reqwest_client::ReqwestClient;
 
 use assets::Assets;
-use node_runtime::{NodeBinaryOptions, NodeRuntime};
 use parking_lot::Mutex;
 use project::project_settings::ProjectSettings;
 use recent_projects::{SshSettings, open_remote_project};
@@ -404,7 +401,6 @@ pub fn main() {
         <dyn Fs>::set_global(fs.clone(), cx);
 
         GitHostingProviderRegistry::set_global(git_hosting_provider_registry, cx);
-        git_hosting_providers::init(cx);
 
         OpenListener::set_global(cx, open_listener.clone());
 

@@ -32,7 +32,6 @@ use git_store::{Repository, RepositoryId};
 pub mod search_history;
 mod yarn;
 
-use dap::inline_value::{InlineValueLocation, VariableLookupKind, VariableScope};
 use task::Shell;
 
 use crate::{
@@ -52,16 +51,10 @@ use buffer_store::{BufferStore, BufferStoreEvent};
 use client::{Client, Collaborator, PendingEntitySubscription, TypedEnvelope, UserStore, proto};
 use clock::ReplicaId;
 
-use dap::client::DebugAdapterClient;
-
 use collections::{BTreeSet, HashMap, HashSet, IndexSet};
 use debounced_delay::DebouncedDelay;
 pub use debugger::breakpoint_store::BreakpointWithPosition;
-use debugger::{
-    breakpoint_store::{ActiveStackFrame, BreakpointStore},
-    dap_store::{DapStore, DapStoreEvent},
-    session::Session,
-};
+
 pub use environment::ProjectEnvironment;
 #[cfg(test)]
 use futures::future::join_all;
@@ -182,11 +175,6 @@ pub struct Project {
     active_entry: Option<ProjectEntryId>,
     buffer_ordered_messages_tx: mpsc::UnboundedSender<BufferOrderedMessage>,
     languages: Arc<LanguageRegistry>,
-    dap_store: Entity<DapStore>,
-    agent_server_store: Entity<AgentServerStore>,
-
-    breakpoint_store: Entity<BreakpointStore>,
-    collab_client: Arc<client::Client>,
     join_project_response_message_id: u32,
     task_store: Entity<TaskStore>,
     user_store: Entity<UserStore>,
@@ -285,11 +273,6 @@ pub enum Event {
     SnippetEdit(BufferId, Vec<(lsp::Range, Snippet)>),
     ExpandedAllForEntry(WorktreeId, ProjectEntryId),
     EntryRenamed(ProjectTransaction),
-}
-
-pub enum DebugAdapterClientState {
-    Starting(Task<Option<Arc<DebugAdapterClient>>>),
-    Running(Arc<DebugAdapterClient>),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, PartialOrd, Ord)]
@@ -436,10 +419,6 @@ pub enum CompletionSource {
         lsp_defaults: Option<Arc<lsp::CompletionListItemDefaults>>,
         /// Whether this completion has been resolved, to ensure it happens once per completion.
         resolved: bool,
-    },
-    Dap {
-        /// The sort text for this completion.
-        sort_text: String,
     },
     Custom,
     BufferWord {
@@ -757,7 +736,6 @@ enum EntitySubscription {
     WorktreeStore(PendingEntitySubscription<WorktreeStore>),
     LspStore(PendingEntitySubscription<LspStore>),
     SettingsObserver(PendingEntitySubscription<SettingsObserver>),
-    DapStore(PendingEntitySubscription<DapStore>),
 }
 
 #[derive(Debug, Clone)]
@@ -985,8 +963,6 @@ impl Project {
         SettingsObserver::init(&client);
         TaskStore::init(Some(&client));
         ToolchainStore::init(&client);
-        DapStore::init(&client, cx);
-        BreakpointStore::init(&client);
         context_server_store::init(cx);
     }
 
@@ -1028,24 +1004,6 @@ impl Project {
             let buffer_store = cx.new(|cx| BufferStore::local(worktree_store.clone(), cx));
             cx.subscribe(&buffer_store, Self::on_buffer_store_event)
                 .detach();
-
-            let breakpoint_store =
-                cx.new(|_| BreakpointStore::local(worktree_store.clone(), buffer_store.clone()));
-
-            let dap_store = cx.new(|cx| {
-                DapStore::new_local(
-                    client.http_client(),
-                    node.clone(),
-                    fs.clone(),
-                    environment.clone(),
-                    toolchain_store.read(cx).as_language_toolchain_store(),
-                    worktree_store.clone(),
-                    breakpoint_store.clone(),
-                    false,
-                    cx,
-                )
-            });
-            cx.subscribe(&dap_store, Self::on_dap_store_event).detach();
 
             let image_store = cx.new(|cx| ImageStore::local(worktree_store.clone(), cx));
             cx.subscribe(&image_store, Self::on_image_store_event)
@@ -1145,8 +1103,6 @@ impl Project {
                 settings_observer,
                 fs,
                 remote_client: None,
-                breakpoint_store,
-                dap_store,
                 agent_server_store,
 
                 buffers_needing_diff: Default::default(),
@@ -1261,22 +1217,6 @@ impl Project {
             });
             cx.subscribe(&lsp_store, Self::on_lsp_store_event).detach();
 
-            let breakpoint_store =
-                cx.new(|_| BreakpointStore::remote(REMOTE_SERVER_PROJECT_ID, remote_proto.clone()));
-
-            let dap_store = cx.new(|cx| {
-                DapStore::new_remote(
-                    REMOTE_SERVER_PROJECT_ID,
-                    remote.clone(),
-                    breakpoint_store.clone(),
-                    worktree_store.clone(),
-                    node.clone(),
-                    client.http_client(),
-                    fs.clone(),
-                    cx,
-                )
-            });
-
             let git_store = cx.new(|cx| {
                 GitStore::remote(
                     &worktree_store,
@@ -1300,8 +1240,6 @@ impl Project {
                 image_store,
                 lsp_store,
                 context_server_store,
-                breakpoint_store,
-                dap_store,
                 join_project_response_message_id: 0,
                 client_state: ProjectClientState::Local,
                 git_store,
@@ -1357,7 +1295,6 @@ impl Project {
             remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.buffer_store);
             remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.worktree_store);
             remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.lsp_store);
-            remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.dap_store);
             remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.settings_observer);
             remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.git_store);
             remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.agent_server_store);
@@ -1374,9 +1311,7 @@ impl Project {
             SettingsObserver::init(&remote_proto);
             TaskStore::init(Some(&remote_proto));
             ToolchainStore::init(&remote_proto);
-            DapStore::init(&remote_proto, cx);
             GitStore::init(&remote_proto);
-            AgentServerStore::init_remote(&remote_proto);
 
             this
         })
@@ -1462,19 +1397,6 @@ impl Project {
 
         let environment = cx.new(|cx| ProjectEnvironment::new(None, cx))?;
 
-        let breakpoint_store =
-            cx.new(|_| BreakpointStore::remote(remote_id, client.clone().into()))?;
-        let dap_store = cx.new(|cx| {
-            DapStore::new_collab(
-                remote_id,
-                client.clone().into(),
-                breakpoint_store.clone(),
-                worktree_store.clone(),
-                fs.clone(),
-                cx,
-            )
-        })?;
-
         let lsp_store = cx.new(|cx| {
             LspStore::new_remote(
                 buffer_store.clone(),
@@ -1522,9 +1444,6 @@ impl Project {
             )
         })?;
 
-        let agent_server_store = cx.new(|cx| AgentServerStore::collab(cx))?;
-        let replica_id = ReplicaId::new(response.payload.replica_id as u16);
-
         let project = cx.new(|cx| {
             let snippets = SnippetProvider::new(fs.clone(), BTreeSet::from_iter([]), cx);
 
@@ -1558,8 +1477,6 @@ impl Project {
             cx.subscribe(&settings_observer, Self::on_settings_observer_event)
                 .detach();
 
-            cx.subscribe(&dap_store, Self::on_dap_store_event).detach();
-
             let mut project = Self {
                 buffer_ordered_messages_tx: tx,
                 buffer_store: buffer_store.clone(),
@@ -1568,28 +1485,16 @@ impl Project {
                 lsp_store: lsp_store.clone(),
                 context_server_store,
                 active_entry: None,
-                collaborators: Default::default(),
                 join_project_response_message_id: response.message_id,
                 languages,
                 user_store: user_store.clone(),
                 task_store,
                 snippets,
                 fs,
-                remote_client: None,
                 settings_observer: settings_observer.clone(),
                 client_subscriptions: Default::default(),
                 _subscriptions: vec![cx.on_release(Self::release)],
-                collab_client: client.clone(),
-                client_state: ProjectClientState::Remote {
-                    sharing_has_stopped: false,
-                    capability: Capability::ReadWrite,
-                    remote_id,
-                    replica_id,
-                },
-                breakpoint_store,
-                dap_store: dap_store.clone(),
                 git_store: git_store.clone(),
-                agent_server_store,
                 buffers_needing_diff: Default::default(),
                 git_diff_debouncer: DebouncedDelay::new(),
                 terminals: Terminals {
@@ -1600,9 +1505,7 @@ impl Project {
                 search_included_history: Self::new_search_history(),
                 search_excluded_history: Self::new_search_history(),
                 environment,
-                remotely_created_models: Arc::new(Mutex::new(RemotelyCreatedModels::default())),
                 toolchain_store: None,
-                agent_location: None,
             };
             project.set_role(role, cx);
             for worktree in worktrees {
@@ -1642,27 +1545,8 @@ impl Project {
                 EntitySubscription::LspStore(subscription) => {
                     subscription.set_entity(&lsp_store, &cx)
                 }
-                EntitySubscription::DapStore(subscription) => {
-                    subscription.set_entity(&dap_store, &cx)
-                }
             })
             .collect::<Vec<_>>();
-
-        let user_ids = response
-            .payload
-            .collaborators
-            .iter()
-            .map(|peer| peer.user_id)
-            .collect();
-        user_store
-            .update(&mut cx, |user_store, cx| user_store.get_users(user_ids, cx))?
-            .await?;
-
-        project.update(&mut cx, |this, cx| {
-            this.set_collaborators_from_proto(response.payload.collaborators, cx)?;
-            this.client_subscriptions.extend(subscriptions);
-            anyhow::Ok(())
-        })??;
 
         Ok(project)
     }
@@ -1672,37 +1556,6 @@ impl Project {
             Some(MAX_PROJECT_SEARCH_HISTORY_SIZE),
             search_history::QueryInsertionBehavior::AlwaysInsert,
         )
-    }
-
-    fn release(&mut self, cx: &mut App) {
-        if let Some(client) = self.remote_client.take() {
-            let shutdown = client.update(cx, |client, cx| {
-                client.shutdown_processes(
-                    Some(proto::ShutdownRemoteServer {}),
-                    cx.background_executor().clone(),
-                )
-            });
-
-            cx.background_spawn(async move {
-                if let Some(shutdown) = shutdown {
-                    shutdown.await;
-                }
-            })
-            .detach()
-        }
-
-        match &self.client_state {
-            ProjectClientState::Local => {}
-            ProjectClientState::Shared { .. } => {
-                let _ = self.unshare_internal(cx);
-            }
-            ProjectClientState::Remote { remote_id, .. } => {
-                let _ = self.collab_client.send(proto::LeaveProject {
-                    project_id: *remote_id,
-                });
-                self.disconnected_from_host_internal(cx);
-            }
-        }
     }
 
     #[cfg(any(test, feature = "test-support"))]
@@ -1784,25 +1637,6 @@ impl Project {
                 .await;
         }
         project
-    }
-
-    #[inline]
-    pub fn dap_store(&self) -> Entity<DapStore> {
-        self.dap_store.clone()
-    }
-
-    #[inline]
-    pub fn breakpoint_store(&self) -> Entity<BreakpointStore> {
-        self.breakpoint_store.clone()
-    }
-
-    pub fn active_debug_session(&self, cx: &App) -> Option<(Entity<Session>, ActiveStackFrame)> {
-        let active_position = self.breakpoint_store.read(cx).active_position()?;
-        let session = self
-            .dap_store
-            .read(cx)
-            .session_by_id(active_position.session_id)?;
-        Some((session, active_position.clone()))
     }
 
     #[inline]
@@ -2472,25 +2306,6 @@ impl Project {
         }
     }
 
-    fn disconnected_from_host_internal(&mut self, cx: &mut App) {
-        if let ProjectClientState::Remote {
-            sharing_has_stopped,
-            ..
-        } = &mut self.client_state
-        {
-            *sharing_has_stopped = true;
-            self.collaborators.clear();
-            self.worktree_store.update(cx, |store, cx| {
-                store.disconnected_from_host(cx);
-            });
-            self.buffer_store.update(cx, |buffer_store, cx| {
-                buffer_store.disconnected_from_host(cx)
-            });
-            self.lsp_store
-                .update(cx, |lsp_store, _cx| lsp_store.disconnected_from_host());
-        }
-    }
-
     #[inline]
     pub fn close(&mut self, cx: &mut Context<Self>) {
         cx.emit(Event::Closed);
@@ -2511,14 +2326,6 @@ impl Project {
     }
 
     #[inline]
-    fn remote_client_is_disconnected(&self, cx: &App) -> bool {
-        self.remote_client
-            .as_ref()
-            .map(|remote| remote.read(cx).is_disconnected())
-            .unwrap_or(false)
-    }
-
-    #[inline]
     pub fn capability(&self) -> Capability {
         match &self.client_state {
             ProjectClientState::Remote { capability, .. } => *capability,
@@ -2533,42 +2340,7 @@ impl Project {
 
     #[inline]
     pub fn is_local(&self) -> bool {
-        match &self.client_state {
-            ProjectClientState::Local | ProjectClientState::Shared { .. } => {
-                self.remote_client.is_none()
-            }
-            ProjectClientState::Remote { .. } => false,
-        }
-    }
-
-    /// Whether this project is a remote server (not counting collab).
-    #[inline]
-    pub fn is_via_remote_server(&self) -> bool {
-        match &self.client_state {
-            ProjectClientState::Local | ProjectClientState::Shared { .. } => {
-                self.remote_client.is_some()
-            }
-            ProjectClientState::Remote { .. } => false,
-        }
-    }
-
-    /// Whether this project is from collab (not counting remote servers).
-    #[inline]
-    pub fn is_via_collab(&self) -> bool {
-        match &self.client_state {
-            ProjectClientState::Local | ProjectClientState::Shared { .. } => false,
-            ProjectClientState::Remote { .. } => true,
-        }
-    }
-
-    /// `!self.is_local()`
-    #[inline]
-    pub fn is_remote(&self) -> bool {
-        debug_assert_eq!(
-            !self.is_local(),
-            self.is_via_collab() || self.is_via_remote_server()
-        );
-        !self.is_local()
+        true
     }
 
     #[inline]

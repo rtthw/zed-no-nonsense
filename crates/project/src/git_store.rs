@@ -4821,15 +4821,6 @@ impl Repository {
                 })
                 .await?;
 
-            if let Some(git_hosting_provider_registry) =
-                cx.update(|cx| GitHostingProviderRegistry::try_global(cx))?
-            {
-                git_hosting_providers::register_additional_providers(
-                    git_hosting_provider_registry,
-                    backend.clone(),
-                );
-            }
-
             let state = RepositoryState::Local {
                 backend,
                 environment: Arc::new(environment),

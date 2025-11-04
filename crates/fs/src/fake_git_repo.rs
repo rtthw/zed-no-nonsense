@@ -6,7 +6,7 @@ use git::{
     Oid,
     blame::Blame,
     repository::{
-        AskPassDelegate, Branch, CommitDetails, CommitOptions, FetchOptions, GitRepository,
+        Branch, CommitDetails, CommitOptions, FetchOptions, GitRepository,
         GitRepositoryCheckpoint, PushOptions, Remote, RepoPath, ResetMode,
     },
     status::{
@@ -519,7 +519,6 @@ impl GitRepository for FakeGitRepository {
         _branch: String,
         _remote: String,
         _options: Option<PushOptions>,
-        _askpass: AskPassDelegate,
         _env: Arc<HashMap<String, String>>,
         _cx: AsyncApp,
     ) -> BoxFuture<'_, Result<git::repository::RemoteCommandOutput>> {
@@ -530,7 +529,6 @@ impl GitRepository for FakeGitRepository {
         &self,
         _branch: String,
         _remote: String,
-        _askpass: AskPassDelegate,
         _env: Arc<HashMap<String, String>>,
         _cx: AsyncApp,
     ) -> BoxFuture<'_, Result<git::repository::RemoteCommandOutput>> {
@@ -540,7 +538,6 @@ impl GitRepository for FakeGitRepository {
     fn fetch(
         &self,
         _fetch_options: FetchOptions,
-        _askpass: AskPassDelegate,
         _env: Arc<HashMap<String, String>>,
         _cx: AsyncApp,
     ) -> BoxFuture<'_, Result<git::repository::RemoteCommandOutput>> {

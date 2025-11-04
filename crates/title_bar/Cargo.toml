@@ -27,7 +27,7 @@ test-support = [
 anyhow.workspace = true
 chrono.workspace = true
 db.workspace = true
-gpui = { workspace = true, features = ["screen-capture"] }
+gpui.workspace = true
 notifications.workspace = true
 project.workspace = true
 schemars.workspace = true
