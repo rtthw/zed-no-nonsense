@@ -4,13 +4,11 @@ mod color_extractor;
 pub mod connection_manager;
 pub mod context_server_store;
 pub mod debounced_delay;
-pub mod debugger;
 pub mod git_store;
 pub mod image_store;
 pub mod lsp_command;
 pub mod lsp_store;
 mod manifest_tree;
-pub mod prettier_store;
 pub mod project_settings;
 pub mod search;
 mod task_inventory;
@@ -35,11 +33,9 @@ mod yarn;
 use task::Shell;
 
 use crate::{
-    agent_server_store::AllAgentServersSettings,
     git_store::GitStore,
     lsp_store::{SymbolLocation, log_store::LogKind},
 };
-pub use agent_server_store::{AgentServerStore, AgentServersUpdated, ExternalAgentServerName};
 pub use git_store::{
     ConflictRegion, ConflictSet, ConflictSetSnapshot, ConflictSetUpdate,
     git_traversal::{ChildEntriesGitIter, GitEntry, GitEntryRef, GitTraversal},
@@ -128,8 +124,6 @@ use worktree_store::{WorktreeStore, WorktreeStoreEvent};
 
 pub use fs::*;
 pub use language::Location;
-#[cfg(any(test, feature = "test-support"))]
-pub use prettier::FORMAT_SUFFIX as TEST_PRETTIER_FORMAT_SUFFIX;
 pub use task_inventory::{
     BasicContextProvider, ContextProviderWithTasks, DebugScenarioContext, Inventory, TaskContexts,
     TaskSourceKind,
@@ -932,7 +926,6 @@ impl Project {
         WorktreeSettings::register(cx);
         ProjectSettings::register(cx);
         DisableAiSettings::register(cx);
-        AllAgentServersSettings::register(cx);
     }
 
     pub fn init(client: &Arc<Client>, cx: &mut App) {
@@ -940,11 +933,7 @@ impl Project {
         Self::init_settings(cx);
 
         let client: AnyProtoClient = client.clone().into();
-        client.add_entity_message_handler(Self::handle_add_collaborator);
-        client.add_entity_message_handler(Self::handle_update_project_collaborator);
-        client.add_entity_message_handler(Self::handle_remove_collaborator);
         client.add_entity_message_handler(Self::handle_update_project);
-        client.add_entity_message_handler(Self::handle_unshare_project);
         client.add_entity_request_handler(Self::handle_update_buffer);
         client.add_entity_message_handler(Self::handle_update_worktree);
         client.add_entity_request_handler(Self::handle_synchronize_buffers);
@@ -953,7 +942,6 @@ impl Project {
         client.add_entity_request_handler(Self::handle_open_buffer_by_id);
         client.add_entity_request_handler(Self::handle_open_buffer_by_path);
         client.add_entity_request_handler(Self::handle_open_new_buffer);
-        client.add_entity_message_handler(Self::handle_create_buffer_for_peer);
         client.add_entity_message_handler(Self::handle_toggle_lsp_logs);
 
         WorktreeStore::init(&client);
@@ -2860,28 +2848,6 @@ impl Project {
                 if most_recent_edit.replica_id == self.replica_id() {
                     cx.emit(Event::SnippetEdit(*buffer_id, edits.clone()))
                 }
-            }
-        }
-    }
-
-    fn on_remote_client_event(
-        &mut self,
-        _: Entity<RemoteClient>,
-        event: &remote::RemoteClientEvent,
-        cx: &mut Context<Self>,
-    ) {
-        match event {
-            remote::RemoteClientEvent::Disconnected => {
-                self.worktree_store.update(cx, |store, cx| {
-                    store.disconnected_from_host(cx);
-                });
-                self.buffer_store.update(cx, |buffer_store, cx| {
-                    buffer_store.disconnected_from_host(cx)
-                });
-                self.lsp_store.update(cx, |lsp_store, _cx| {
-                    lsp_store.disconnected_from_ssh_remote()
-                });
-                cx.emit(Event::DisconnectedFromSshRemote);
             }
         }
     }

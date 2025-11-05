@@ -1,6 +1,5 @@
 //! The Zed Rust Extension API allows you write extensions for [Zed](https://zed.dev/) in Rust.
 
-pub mod http_client;
 pub mod process;
 pub mod settings;
 
@@ -21,10 +20,6 @@ pub use wit::{
     zed::extension::github::{
         GithubRelease, GithubReleaseAsset, GithubReleaseOptions, github_release_by_tag_name,
         latest_github_release,
-    },
-    zed::extension::nodejs::{
-        node_binary_path, npm_install_package, npm_package_installed_version,
-        npm_package_latest_version,
     },
     zed::extension::platform::{Architecture, Os, current_platform},
     zed::extension::slash_command::{
@@ -150,15 +145,6 @@ pub trait Extension: Send + Sync {
         Err("`run_slash_command` not implemented".to_string())
     }
 
-    /// Returns the configuration options for the specified context server.
-    fn context_server_configuration(
-        &mut self,
-        _context_server_id: &ContextServerId,
-        _project: &Project,
-    ) -> Result<Option<ContextServerConfiguration>> {
-        Ok(None)
-    }
-
     /// Returns a list of package names as suggestions to be included in the
     /// search results of the `/docs` slash command.
     ///
@@ -249,7 +235,6 @@ static mut EXTENSION: Option<Box<dyn Extension>> = None;
 pub static ZED_API_VERSION: [u8; 6] = *include_bytes!(concat!(env!("OUT_DIR"), "/version_bytes"));
 
 mod wit {
-
     wit_bindgen::generate!({
         skip: ["init-extension"],
         path: "./wit/since_v0.6.0",
@@ -261,12 +246,6 @@ wit::export!(Component);
 struct Component;
 
 impl wit::Guest for Component {
-    fn context_server_command(_context_server_id: String, _project: &Project) -> Result<Command, String> {
-        todo!()
-    }
-    fn context_server_configuration(_context_server_id: String, _project: &Project) -> Result<Option<ContextServerConfiguration>, String> {
-        todo!()
-    }
     fn language_server_command(
         language_server_id: String,
         worktree: &wit::Worktree,

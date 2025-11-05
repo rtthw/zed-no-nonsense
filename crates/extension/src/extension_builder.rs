@@ -1,20 +1,13 @@
+
 use crate::{
     ExtensionLibraryKind, ExtensionManifest, GrammarManifestEntry,
     parse_wasm_extension_version,
 };
 use anyhow::{Context as _, Result, bail};
-use async_compression::futures::bufread::GzipDecoder;
-use async_tar::Archive;
-use futures::{AsyncReadExt, io::Cursor};
 use heck::ToSnakeCase;
-use http_client::{self, AsyncBody, HttpClient};
 use serde::Deserialize;
 use std::{
-    env, fs, mem,
-    path::{Path, PathBuf},
-    process::Stdio,
-    str::FromStr,
-    sync::Arc,
+    env, fs, mem, path::{Path, PathBuf}, process::Stdio
 };
 use wasm_encoder::{ComponentSectionId, Encode as _, RawSection, Section as _};
 use wasmparser::Parser;
@@ -49,7 +42,6 @@ const WASI_SDK_ASSET_NAME: Option<&str> = if cfg!(all(target_os = "macos", targe
 
 pub struct ExtensionBuilder {
     cache_dir: PathBuf,
-    pub http: Arc<dyn HttpClient>,
 }
 
 pub struct CompileExtensionOptions {
@@ -67,10 +59,9 @@ struct CargoTomlPackage {
 }
 
 impl ExtensionBuilder {
-    pub fn new(http_client: Arc<dyn HttpClient>, cache_dir: PathBuf) -> Self {
+    pub fn new(cache_dir: PathBuf) -> Self {
         Self {
             cache_dir,
-            http: http_client,
         }
     }
 
@@ -405,37 +396,39 @@ impl ExtensionBuilder {
             return Ok(clang_path);
         }
 
-        let mut tar_out_dir = wasi_sdk_dir.clone();
-        tar_out_dir.set_extension("archive");
+        bail!("failed to resolve `clang` path");
 
-        fs::remove_dir_all(&wasi_sdk_dir).ok();
-        fs::remove_dir_all(&tar_out_dir).ok();
+        // let mut tar_out_dir = wasi_sdk_dir.clone();
+        // tar_out_dir.set_extension("archive");
 
-        log::info!("downloading wasi-sdk to {}", wasi_sdk_dir.display());
-        let mut response = self.http.get(&url, AsyncBody::default(), true).await?;
-        let body = GzipDecoder::new({
-            // stream the entire request into memory at once as the artifact is quite big (100MB+)
-            let mut b = vec![];
-            response.body_mut().read_to_end(&mut b).await?;
-            Cursor::new(b)
-        });
-        let tar = Archive::new(body);
+        // fs::remove_dir_all(&wasi_sdk_dir).ok();
+        // fs::remove_dir_all(&tar_out_dir).ok();
 
-        log::info!("un-tarring wasi-sdk to {}", wasi_sdk_dir.display());
-        tar.unpack(&tar_out_dir)
-            .await
-            .context("failed to unpack wasi-sdk archive")?;
-        log::info!("finished downloading wasi-sdk");
+        // log::info!("downloading wasi-sdk to {}", wasi_sdk_dir.display());
+        // let mut response = self.http.get(&url, AsyncBody::default(), true).await?;
+        // let body = GzipDecoder::new({
+        //     // stream the entire request into memory at once as the artifact is quite big (100MB+)
+        //     let mut b = vec![];
+        //     response.body_mut().read_to_end(&mut b).await?;
+        //     Cursor::new(b)
+        // });
+        // let tar = Archive::new(body);
 
-        let inner_dir = fs::read_dir(&tar_out_dir)?
-            .next()
-            .context("no content")?
-            .context("failed to read contents of extracted wasi archive directory")?
-            .path();
-        fs::rename(&inner_dir, &wasi_sdk_dir).context("failed to move extracted wasi dir")?;
-        fs::remove_dir_all(&tar_out_dir).ok();
+        // log::info!("un-tarring wasi-sdk to {}", wasi_sdk_dir.display());
+        // tar.unpack(&tar_out_dir)
+        //     .await
+        //     .context("failed to unpack wasi-sdk archive")?;
+        // log::info!("finished downloading wasi-sdk");
 
-        Ok(clang_path)
+        // let inner_dir = fs::read_dir(&tar_out_dir)?
+        //     .next()
+        //     .context("no content")?
+        //     .context("failed to read contents of extracted wasi archive directory")?
+        //     .path();
+        // fs::rename(&inner_dir, &wasi_sdk_dir).context("failed to move extracted wasi dir")?;
+        // fs::remove_dir_all(&tar_out_dir).ok();
+
+        // Ok(clang_path)
     }
 
     // This was adapted from:

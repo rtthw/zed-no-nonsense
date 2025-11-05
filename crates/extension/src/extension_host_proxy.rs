@@ -1,4 +1,5 @@
-use std::path::{Path, PathBuf};
+
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -347,39 +348,5 @@ impl ExtensionSlashCommandProxy for ExtensionHostProxy {
         };
 
         proxy.unregister_slash_command(command_name)
-    }
-}
-
-pub trait ExtensionContextServerProxy: Send + Sync + 'static {
-    fn register_context_server(
-        &self,
-        extension: Arc<dyn Extension>,
-        server_id: Arc<str>,
-        cx: &mut App,
-    );
-
-    fn unregister_context_server(&self, server_id: Arc<str>, cx: &mut App);
-}
-
-impl ExtensionContextServerProxy for ExtensionHostProxy {
-    fn register_context_server(
-        &self,
-        extension: Arc<dyn Extension>,
-        server_id: Arc<str>,
-        cx: &mut App,
-    ) {
-        let Some(proxy) = self.context_server_proxy.read().clone() else {
-            return;
-        };
-
-        proxy.register_context_server(extension, server_id, cx)
-    }
-
-    fn unregister_context_server(&self, server_id: Arc<str>, cx: &mut App) {
-        let Some(proxy) = self.context_server_proxy.read().clone() else {
-            return;
-        };
-
-        proxy.unregister_context_server(server_id, cx)
     }
 }

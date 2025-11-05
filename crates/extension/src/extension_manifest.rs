@@ -262,8 +262,6 @@ fn manifest_from_old_manifest(
 
 #[cfg(test)]
 mod tests {
-    use pretty_assertions::assert_eq;
-
     use crate::ProcessExecCapability;
 
     use super::*;
