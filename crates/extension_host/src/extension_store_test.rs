@@ -1,3 +1,4 @@
+
 use crate::{
     Event, ExtensionIndex, ExtensionIndexEntry, ExtensionIndexLanguageEntry,
     ExtensionIndexThemeEntry, ExtensionManifest, ExtensionSettings, ExtensionStore,
@@ -9,15 +10,12 @@ use extension::ExtensionHostProxy;
 use fs::{FakeFs, Fs, RealFs};
 use futures::{AsyncReadExt, StreamExt, io::BufReader};
 use gpui::{AppContext as _, SemanticVersion, TestAppContext};
-use http_client::{FakeHttpClient, Response};
 use language::{BinaryStatus, LanguageMatcher, LanguageName, LanguageRegistry};
 use language_extension::LspAccess;
 use lsp::LanguageServerName;
-use node_runtime::NodeRuntime;
 use parking_lot::Mutex;
 use project::{DEFAULT_COMPLETION_CONTEXT, Project};
 use release_channel::AppVersion;
-use reqwest_client::ReqwestClient;
 use serde_json::json;
 use settings::{Settings as _, SettingsStore};
 use std::{

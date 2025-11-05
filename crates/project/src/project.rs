@@ -44,7 +44,6 @@ pub use manifest_tree::ManifestTree;
 
 use anyhow::{Context as _, Result, anyhow};
 use buffer_store::{BufferStore, BufferStoreEvent};
-use client::{Client, Collaborator, PendingEntitySubscription, TypedEnvelope, UserStore, proto};
 use clock::ReplicaId;
 
 use collections::{BTreeSet, HashMap, HashSet, IndexSet};
@@ -171,7 +170,6 @@ pub struct Project {
     languages: Arc<LanguageRegistry>,
     join_project_response_message_id: u32,
     task_store: Entity<TaskStore>,
-    user_store: Entity<UserStore>,
     fs: Arc<dyn Fs>,
     client_state: ProjectClientState,
     git_store: Entity<GitStore>,
@@ -936,7 +934,6 @@ impl Project {
         client.add_entity_message_handler(Self::handle_update_project);
         client.add_entity_request_handler(Self::handle_update_buffer);
         client.add_entity_message_handler(Self::handle_update_worktree);
-        client.add_entity_request_handler(Self::handle_synchronize_buffers);
 
         client.add_entity_request_handler(Self::handle_search_candidate_buffers);
         client.add_entity_request_handler(Self::handle_open_buffer_by_id);
@@ -955,9 +952,6 @@ impl Project {
     }
 
     pub fn local(
-        client: Arc<Client>,
-        node: NodeRuntime,
-        user_store: Entity<UserStore>,
         languages: Arc<LanguageRegistry>,
         fs: Arc<dyn Fs>,
         env: Option<HashMap<String, String>>,
@@ -973,8 +967,6 @@ impl Project {
                 .detach();
 
             let weak_self = cx.weak_entity();
-            let context_server_store =
-                cx.new(|cx| ContextServerStore::new(worktree_store.clone(), weak_self, cx));
 
             let environment = cx.new(|cx| ProjectEnvironment::new(env, cx));
             let manifest_tree = ManifestTree::new(worktree_store.clone(), cx);
@@ -996,16 +988,6 @@ impl Project {
             let image_store = cx.new(|cx| ImageStore::local(worktree_store.clone(), cx));
             cx.subscribe(&image_store, Self::on_image_store_event)
                 .detach();
-
-            let prettier_store = cx.new(|cx| {
-                PrettierStore::new(
-                    node.clone(),
-                    fs.clone(),
-                    languages.clone(),
-                    worktree_store.clone(),
-                    cx,
-                )
-            });
 
             let task_store = cx.new(|cx| {
                 TaskStore::local(
@@ -1032,7 +1014,6 @@ impl Project {
                 LspStore::new_local(
                     buffer_store.clone(),
                     worktree_store.clone(),
-                    prettier_store.clone(),
                     toolchain_store
                         .read(cx)
                         .as_local_store()
@@ -1057,27 +1038,14 @@ impl Project {
                 )
             });
 
-            let agent_server_store = cx.new(|cx| {
-                AgentServerStore::local(
-                    node.clone(),
-                    fs.clone(),
-                    environment.clone(),
-                    client.http_client(),
-                    cx,
-                )
-            });
-
             cx.subscribe(&lsp_store, Self::on_lsp_store_event).detach();
 
             Self {
                 buffer_ordered_messages_tx: tx,
-                collaborators: Default::default(),
                 worktree_store,
                 buffer_store,
                 image_store,
                 lsp_store,
-                context_server_store,
-                join_project_response_message_id: 0,
                 client_state: ProjectClientState::Local,
                 git_store,
                 client_subscriptions: Vec::new(),
@@ -1085,458 +1053,21 @@ impl Project {
                 active_entry: None,
                 snippets,
                 languages,
-                collab_client: client,
                 task_store,
-                user_store,
                 settings_observer,
                 fs,
-                remote_client: None,
-                agent_server_store,
-
                 buffers_needing_diff: Default::default(),
                 git_diff_debouncer: DebouncedDelay::new(),
                 terminals: Terminals {
                     local_handles: Vec::new(),
                 },
-                node: Some(node),
                 search_history: Self::new_search_history(),
                 environment,
-                remotely_created_models: Default::default(),
-
                 search_included_history: Self::new_search_history(),
                 search_excluded_history: Self::new_search_history(),
-
                 toolchain_store: Some(toolchain_store),
-
-                agent_location: None,
             }
         })
-    }
-
-    pub fn remote(
-        remote: Entity<RemoteClient>,
-        client: Arc<Client>,
-        node: NodeRuntime,
-        user_store: Entity<UserStore>,
-        languages: Arc<LanguageRegistry>,
-        fs: Arc<dyn Fs>,
-        cx: &mut App,
-    ) -> Entity<Self> {
-        cx.new(|cx: &mut Context<Self>| {
-            let (tx, rx) = mpsc::unbounded();
-            cx.spawn(async move |this, cx| Self::send_buffer_ordered_messages(this, rx, cx).await)
-                .detach();
-            let global_snippets_dir = paths::snippets_dir().to_owned();
-            let snippets =
-                SnippetProvider::new(fs.clone(), BTreeSet::from_iter([global_snippets_dir]), cx);
-
-            let (remote_proto, path_style) =
-                remote.read_with(cx, |remote, _| (remote.proto_client(), remote.path_style()));
-            let worktree_store = cx.new(|_| {
-                WorktreeStore::remote(
-                    false,
-                    remote_proto.clone(),
-                    REMOTE_SERVER_PROJECT_ID,
-                    path_style,
-                )
-            });
-            cx.subscribe(&worktree_store, Self::on_worktree_store_event)
-                .detach();
-
-            let weak_self = cx.weak_entity();
-            let context_server_store =
-                cx.new(|cx| ContextServerStore::new(worktree_store.clone(), weak_self, cx));
-
-            let buffer_store = cx.new(|cx| {
-                BufferStore::remote(
-                    worktree_store.clone(),
-                    remote.read(cx).proto_client(),
-                    REMOTE_SERVER_PROJECT_ID,
-                    cx,
-                )
-            });
-            let image_store = cx.new(|cx| {
-                ImageStore::remote(
-                    worktree_store.clone(),
-                    remote.read(cx).proto_client(),
-                    REMOTE_SERVER_PROJECT_ID,
-                    cx,
-                )
-            });
-            cx.subscribe(&buffer_store, Self::on_buffer_store_event)
-                .detach();
-            let toolchain_store = cx.new(|cx| {
-                ToolchainStore::remote(REMOTE_SERVER_PROJECT_ID, remote.read(cx).proto_client(), cx)
-            });
-            let task_store = cx.new(|cx| {
-                TaskStore::remote(
-                    buffer_store.downgrade(),
-                    worktree_store.clone(),
-                    toolchain_store.read(cx).as_language_toolchain_store(),
-                    remote.read(cx).proto_client(),
-                    REMOTE_SERVER_PROJECT_ID,
-                    cx,
-                )
-            });
-
-            let settings_observer = cx.new(|cx| {
-                SettingsObserver::new_remote(
-                    fs.clone(),
-                    worktree_store.clone(),
-                    task_store.clone(),
-                    Some(remote_proto.clone()),
-                    cx,
-                )
-            });
-            cx.subscribe(&settings_observer, Self::on_settings_observer_event)
-                .detach();
-
-            let environment = cx.new(|cx| ProjectEnvironment::new(None, cx));
-
-            let lsp_store = cx.new(|cx| {
-                LspStore::new_remote(
-                    buffer_store.clone(),
-                    worktree_store.clone(),
-                    languages.clone(),
-                    remote_proto.clone(),
-                    REMOTE_SERVER_PROJECT_ID,
-                    cx,
-                )
-            });
-            cx.subscribe(&lsp_store, Self::on_lsp_store_event).detach();
-
-            let git_store = cx.new(|cx| {
-                GitStore::remote(
-                    &worktree_store,
-                    buffer_store.clone(),
-                    remote_proto.clone(),
-                    REMOTE_SERVER_PROJECT_ID,
-                    cx,
-                )
-            });
-
-            let agent_server_store =
-                cx.new(|_| AgentServerStore::remote(REMOTE_SERVER_PROJECT_ID, remote.clone()));
-
-            cx.subscribe(&remote, Self::on_remote_client_event).detach();
-
-            let this = Self {
-                buffer_ordered_messages_tx: tx,
-                collaborators: Default::default(),
-                worktree_store,
-                buffer_store,
-                image_store,
-                lsp_store,
-                context_server_store,
-                join_project_response_message_id: 0,
-                client_state: ProjectClientState::Local,
-                git_store,
-                agent_server_store,
-                client_subscriptions: Vec::new(),
-                _subscriptions: vec![
-                    cx.on_release(Self::release),
-                    cx.on_app_quit(|this, cx| {
-                        let shutdown = this.remote_client.take().and_then(|client| {
-                            client.update(cx, |client, cx| {
-                                client.shutdown_processes(
-                                    Some(proto::ShutdownRemoteServer {}),
-                                    cx.background_executor().clone(),
-                                )
-                            })
-                        });
-
-                        cx.background_executor().spawn(async move {
-                            if let Some(shutdown) = shutdown {
-                                shutdown.await;
-                            }
-                        })
-                    }),
-                ],
-                active_entry: None,
-                snippets,
-                languages,
-                collab_client: client,
-                task_store,
-                user_store,
-                settings_observer,
-                fs,
-                remote_client: Some(remote.clone()),
-                buffers_needing_diff: Default::default(),
-                git_diff_debouncer: DebouncedDelay::new(),
-                terminals: Terminals {
-                    local_handles: Vec::new(),
-                },
-                node: Some(node),
-                search_history: Self::new_search_history(),
-                environment,
-                remotely_created_models: Default::default(),
-
-                search_included_history: Self::new_search_history(),
-                search_excluded_history: Self::new_search_history(),
-
-                toolchain_store: Some(toolchain_store),
-                agent_location: None,
-            };
-
-            // remote server -> local machine handlers
-            remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &cx.entity());
-            remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.buffer_store);
-            remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.worktree_store);
-            remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.lsp_store);
-            remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.settings_observer);
-            remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.git_store);
-            remote_proto.subscribe_to_entity(REMOTE_SERVER_PROJECT_ID, &this.agent_server_store);
-
-            remote_proto.add_entity_message_handler(Self::handle_create_buffer_for_peer);
-            remote_proto.add_entity_message_handler(Self::handle_update_worktree);
-            remote_proto.add_entity_message_handler(Self::handle_update_project);
-            remote_proto.add_entity_message_handler(Self::handle_toast);
-            remote_proto.add_entity_request_handler(Self::handle_language_server_prompt_request);
-            remote_proto.add_entity_message_handler(Self::handle_hide_toast);
-            remote_proto.add_entity_request_handler(Self::handle_update_buffer_from_remote_server);
-            BufferStore::init(&remote_proto);
-            LspStore::init(&remote_proto);
-            SettingsObserver::init(&remote_proto);
-            TaskStore::init(Some(&remote_proto));
-            ToolchainStore::init(&remote_proto);
-            GitStore::init(&remote_proto);
-
-            this
-        })
-    }
-
-    pub async fn in_room(
-        remote_id: u64,
-        client: Arc<Client>,
-        user_store: Entity<UserStore>,
-        languages: Arc<LanguageRegistry>,
-        fs: Arc<dyn Fs>,
-        cx: AsyncApp,
-    ) -> Result<Entity<Self>> {
-        client.connect(true, &cx).await.into_response()?;
-
-        let subscriptions = [
-            EntitySubscription::Project(client.subscribe_to_entity::<Self>(remote_id)?),
-            EntitySubscription::BufferStore(client.subscribe_to_entity::<BufferStore>(remote_id)?),
-            EntitySubscription::GitStore(client.subscribe_to_entity::<GitStore>(remote_id)?),
-            EntitySubscription::WorktreeStore(
-                client.subscribe_to_entity::<WorktreeStore>(remote_id)?,
-            ),
-            EntitySubscription::LspStore(client.subscribe_to_entity::<LspStore>(remote_id)?),
-            EntitySubscription::SettingsObserver(
-                client.subscribe_to_entity::<SettingsObserver>(remote_id)?,
-            ),
-            EntitySubscription::DapStore(client.subscribe_to_entity::<DapStore>(remote_id)?),
-        ];
-        let committer = get_git_committer(&cx).await;
-        let response = client
-            .request_envelope(proto::JoinProject {
-                project_id: remote_id,
-                committer_email: committer.email,
-                committer_name: committer.name,
-            })
-            .await?;
-        Self::from_join_project_response(
-            response,
-            subscriptions,
-            client,
-            false,
-            user_store,
-            languages,
-            fs,
-            cx,
-        )
-        .await
-    }
-
-    async fn from_join_project_response(
-        response: TypedEnvelope<proto::JoinProjectResponse>,
-        subscriptions: [EntitySubscription; 7],
-        client: Arc<Client>,
-        run_tasks: bool,
-        user_store: Entity<UserStore>,
-        languages: Arc<LanguageRegistry>,
-        fs: Arc<dyn Fs>,
-        mut cx: AsyncApp,
-    ) -> Result<Entity<Self>> {
-        let remote_id = response.payload.project_id;
-        let role = response.payload.role();
-
-        let path_style = if response.payload.windows_paths {
-            PathStyle::Windows
-        } else {
-            PathStyle::Posix
-        };
-
-        let worktree_store = cx.new(|_| {
-            WorktreeStore::remote(
-                true,
-                client.clone().into(),
-                response.payload.project_id,
-                path_style,
-            )
-        })?;
-        let buffer_store = cx.new(|cx| {
-            BufferStore::remote(worktree_store.clone(), client.clone().into(), remote_id, cx)
-        })?;
-        let image_store = cx.new(|cx| {
-            ImageStore::remote(worktree_store.clone(), client.clone().into(), remote_id, cx)
-        })?;
-
-        let environment = cx.new(|cx| ProjectEnvironment::new(None, cx))?;
-
-        let lsp_store = cx.new(|cx| {
-            LspStore::new_remote(
-                buffer_store.clone(),
-                worktree_store.clone(),
-                languages.clone(),
-                client.clone().into(),
-                remote_id,
-                cx,
-            )
-        })?;
-
-        let task_store = cx.new(|cx| {
-            if run_tasks {
-                TaskStore::remote(
-                    buffer_store.downgrade(),
-                    worktree_store.clone(),
-                    Arc::new(EmptyToolchainStore),
-                    client.clone().into(),
-                    remote_id,
-                    cx,
-                )
-            } else {
-                TaskStore::Noop
-            }
-        })?;
-
-        let settings_observer = cx.new(|cx| {
-            SettingsObserver::new_remote(
-                fs.clone(),
-                worktree_store.clone(),
-                task_store.clone(),
-                None,
-                cx,
-            )
-        })?;
-
-        let git_store = cx.new(|cx| {
-            GitStore::remote(
-                // In this remote case we pass None for the environment
-                &worktree_store,
-                buffer_store.clone(),
-                client.clone().into(),
-                remote_id,
-                cx,
-            )
-        })?;
-
-        let project = cx.new(|cx| {
-            let snippets = SnippetProvider::new(fs.clone(), BTreeSet::from_iter([]), cx);
-
-            let weak_self = cx.weak_entity();
-            let context_server_store =
-                cx.new(|cx| ContextServerStore::new(worktree_store.clone(), weak_self, cx));
-
-            let mut worktrees = Vec::new();
-            for worktree in response.payload.worktrees {
-                let worktree = Worktree::remote(
-                    remote_id,
-                    replica_id,
-                    worktree,
-                    client.clone().into(),
-                    path_style,
-                    cx,
-                );
-                worktrees.push(worktree);
-            }
-
-            let (tx, rx) = mpsc::unbounded();
-            cx.spawn(async move |this, cx| Self::send_buffer_ordered_messages(this, rx, cx).await)
-                .detach();
-
-            cx.subscribe(&worktree_store, Self::on_worktree_store_event)
-                .detach();
-
-            cx.subscribe(&buffer_store, Self::on_buffer_store_event)
-                .detach();
-            cx.subscribe(&lsp_store, Self::on_lsp_store_event).detach();
-            cx.subscribe(&settings_observer, Self::on_settings_observer_event)
-                .detach();
-
-            let mut project = Self {
-                buffer_ordered_messages_tx: tx,
-                buffer_store: buffer_store.clone(),
-                image_store,
-                worktree_store: worktree_store.clone(),
-                lsp_store: lsp_store.clone(),
-                context_server_store,
-                active_entry: None,
-                join_project_response_message_id: response.message_id,
-                languages,
-                user_store: user_store.clone(),
-                task_store,
-                snippets,
-                fs,
-                settings_observer: settings_observer.clone(),
-                client_subscriptions: Default::default(),
-                _subscriptions: vec![cx.on_release(Self::release)],
-                git_store: git_store.clone(),
-                buffers_needing_diff: Default::default(),
-                git_diff_debouncer: DebouncedDelay::new(),
-                terminals: Terminals {
-                    local_handles: Vec::new(),
-                },
-                node: None,
-                search_history: Self::new_search_history(),
-                search_included_history: Self::new_search_history(),
-                search_excluded_history: Self::new_search_history(),
-                environment,
-                toolchain_store: None,
-            };
-            project.set_role(role, cx);
-            for worktree in worktrees {
-                project.add_worktree(&worktree, cx);
-            }
-            project
-        })?;
-
-        let weak_project = project.downgrade();
-        lsp_store
-            .update(&mut cx, |lsp_store, cx| {
-                lsp_store.set_language_server_statuses_from_proto(
-                    weak_project,
-                    response.payload.language_servers,
-                    response.payload.language_server_capabilities,
-                    cx,
-                );
-            })
-            .ok();
-
-        let subscriptions = subscriptions
-            .into_iter()
-            .map(|s| match s {
-                EntitySubscription::BufferStore(subscription) => {
-                    subscription.set_entity(&buffer_store, &cx)
-                }
-                EntitySubscription::WorktreeStore(subscription) => {
-                    subscription.set_entity(&worktree_store, &cx)
-                }
-                EntitySubscription::GitStore(subscription) => {
-                    subscription.set_entity(&git_store, &cx)
-                }
-                EntitySubscription::SettingsObserver(subscription) => {
-                    subscription.set_entity(&settings_observer, &cx)
-                }
-                EntitySubscription::Project(subscription) => subscription.set_entity(&project, &cx),
-                EntitySubscription::LspStore(subscription) => {
-                    subscription.set_entity(&lsp_store, &cx)
-                }
-            })
-            .collect::<Vec<_>>();
-
-        Ok(project)
     }
 
     fn new_search_history() -> SearchHistory {
@@ -1556,17 +1087,9 @@ impl Project {
         let fs = Arc::new(RealFs::new(None, cx.background_executor().clone()));
         let languages = LanguageRegistry::test(cx.background_executor().clone());
         let clock = Arc::new(FakeSystemClock::new());
-        let http_client = http_client::FakeHttpClient::with_404_response();
-        let client = cx
-            .update(|cx| client::Client::new(clock, http_client.clone(), cx))
-            .unwrap();
-        let user_store = cx.new(|cx| UserStore::new(client.clone(), cx)).unwrap();
         let project = cx
             .update(|cx| {
                 Project::local(
-                    client,
-                    node_runtime::NodeRuntime::unavailable(),
-                    user_store,
                     Arc::new(languages),
                     fs,
                     None,
@@ -1599,14 +1122,8 @@ impl Project {
 
         let languages = LanguageRegistry::test(cx.executor());
         let clock = Arc::new(FakeSystemClock::new());
-        let http_client = http_client::FakeHttpClient::with_404_response();
-        let client = cx.update(|cx| client::Client::new(clock, http_client.clone(), cx));
-        let user_store = cx.new(|cx| UserStore::new(client.clone(), cx));
         let project = cx.update(|cx| {
             Project::local(
-                client,
-                node_runtime::NodeRuntime::unavailable(),
-                user_store,
                 Arc::new(languages),
                 fs,
                 None,
@@ -1650,26 +1167,6 @@ impl Project {
     #[inline]
     pub fn languages(&self) -> &Arc<LanguageRegistry> {
         &self.languages
-    }
-
-    #[inline]
-    pub fn client(&self) -> Arc<Client> {
-        self.collab_client.clone()
-    }
-
-    #[inline]
-    pub fn remote_client(&self) -> Option<Entity<RemoteClient>> {
-        self.remote_client.clone()
-    }
-
-    #[inline]
-    pub fn user_store(&self) -> Entity<UserStore> {
-        self.user_store.clone()
-    }
-
-    #[inline]
-    pub fn node_runtime(&self) -> Option<&NodeRuntime> {
-        self.node.as_ref()
     }
 
     #[inline]
@@ -1740,15 +1237,6 @@ impl Project {
     }
 
     #[inline]
-    pub fn remote_id(&self) -> Option<u64> {
-        match self.client_state {
-            ProjectClientState::Local => None,
-            ProjectClientState::Shared { remote_id, .. }
-            | ProjectClientState::Remote { remote_id, .. } => Some(remote_id),
-        }
-    }
-
-    #[inline]
     pub fn supports_terminal(&self, _cx: &App) -> bool {
         if self.is_local() {
             return true;
@@ -1761,31 +1249,8 @@ impl Project {
     }
 
     #[inline]
-    pub fn remote_connection_state(&self, cx: &App) -> Option<remote::ConnectionState> {
-        self.remote_client
-            .as_ref()
-            .map(|remote| remote.read(cx).connection_state())
-    }
-
-    #[inline]
-    pub fn remote_connection_options(&self, cx: &App) -> Option<RemoteConnectionOptions> {
-        self.remote_client
-            .as_ref()
-            .map(|remote| remote.read(cx).connection_options())
-    }
-
-    #[inline]
     pub fn replica_id(&self) -> ReplicaId {
-        match self.client_state {
-            ProjectClientState::Remote { replica_id, .. } => replica_id,
-            _ => {
-                if self.remote_client.is_some() {
-                    ReplicaId::REMOTE_SERVER
-                } else {
-                    ReplicaId::LOCAL
-                }
-            }
-        }
+        ReplicaId::LOCAL
     }
 
     #[inline]
@@ -1814,16 +1279,6 @@ impl Project {
             SearchInputKind::Include => &mut self.search_included_history,
             SearchInputKind::Exclude => &mut self.search_excluded_history,
         }
-    }
-
-    #[inline]
-    pub fn collaborators(&self) -> &HashMap<proto::PeerId, Collaborator> {
-        &self.collaborators
-    }
-
-    #[inline]
-    pub fn host(&self) -> Option<&Collaborator> {
-        self.collaborators.values().find(|c| c.is_host)
     }
 
     #[inline]
@@ -2094,206 +1549,6 @@ impl Project {
         }))
     }
 
-    pub fn shared(&mut self, project_id: u64, cx: &mut Context<Self>) -> Result<()> {
-        anyhow::ensure!(
-            matches!(self.client_state, ProjectClientState::Local),
-            "project was already shared"
-        );
-
-        self.client_subscriptions.extend([
-            self.collab_client
-                .subscribe_to_entity(project_id)?
-                .set_entity(&cx.entity(), &cx.to_async()),
-            self.collab_client
-                .subscribe_to_entity(project_id)?
-                .set_entity(&self.worktree_store, &cx.to_async()),
-            self.collab_client
-                .subscribe_to_entity(project_id)?
-                .set_entity(&self.buffer_store, &cx.to_async()),
-            self.collab_client
-                .subscribe_to_entity(project_id)?
-                .set_entity(&self.lsp_store, &cx.to_async()),
-            self.collab_client
-                .subscribe_to_entity(project_id)?
-                .set_entity(&self.settings_observer, &cx.to_async()),
-            self.collab_client
-                .subscribe_to_entity(project_id)?
-                .set_entity(&self.dap_store, &cx.to_async()),
-            self.collab_client
-                .subscribe_to_entity(project_id)?
-                .set_entity(&self.breakpoint_store, &cx.to_async()),
-            self.collab_client
-                .subscribe_to_entity(project_id)?
-                .set_entity(&self.git_store, &cx.to_async()),
-        ]);
-
-        self.buffer_store.update(cx, |buffer_store, cx| {
-            buffer_store.shared(project_id, self.collab_client.clone().into(), cx)
-        });
-        self.worktree_store.update(cx, |worktree_store, cx| {
-            worktree_store.shared(project_id, self.collab_client.clone().into(), cx);
-        });
-        self.lsp_store.update(cx, |lsp_store, cx| {
-            lsp_store.shared(project_id, self.collab_client.clone().into(), cx)
-        });
-        self.breakpoint_store.update(cx, |breakpoint_store, _| {
-            breakpoint_store.shared(project_id, self.collab_client.clone().into())
-        });
-        self.dap_store.update(cx, |dap_store, cx| {
-            dap_store.shared(project_id, self.collab_client.clone().into(), cx);
-        });
-        self.task_store.update(cx, |task_store, cx| {
-            task_store.shared(project_id, self.collab_client.clone().into(), cx);
-        });
-        self.settings_observer.update(cx, |settings_observer, cx| {
-            settings_observer.shared(project_id, self.collab_client.clone().into(), cx)
-        });
-        self.git_store.update(cx, |git_store, cx| {
-            git_store.shared(project_id, self.collab_client.clone().into(), cx)
-        });
-
-        self.client_state = ProjectClientState::Shared {
-            remote_id: project_id,
-        };
-
-        cx.emit(Event::RemoteIdChanged(Some(project_id)));
-        Ok(())
-    }
-
-    pub fn reshared(
-        &mut self,
-        message: proto::ResharedProject,
-        cx: &mut Context<Self>,
-    ) -> Result<()> {
-        self.buffer_store
-            .update(cx, |buffer_store, _| buffer_store.forget_shared_buffers());
-        self.set_collaborators_from_proto(message.collaborators, cx)?;
-
-        self.worktree_store.update(cx, |worktree_store, cx| {
-            worktree_store.send_project_updates(cx);
-        });
-        if let Some(remote_id) = self.remote_id() {
-            self.git_store.update(cx, |git_store, cx| {
-                git_store.shared(remote_id, self.collab_client.clone().into(), cx)
-            });
-        }
-        cx.emit(Event::Reshared);
-        Ok(())
-    }
-
-    pub fn rejoined(
-        &mut self,
-        message: proto::RejoinedProject,
-        message_id: u32,
-        cx: &mut Context<Self>,
-    ) -> Result<()> {
-        cx.update_global::<SettingsStore, _>(|store, cx| {
-            self.worktree_store.update(cx, |worktree_store, cx| {
-                for worktree in worktree_store.worktrees() {
-                    store
-                        .clear_local_settings(worktree.read(cx).id(), cx)
-                        .log_err();
-                }
-            });
-        });
-
-        self.join_project_response_message_id = message_id;
-        self.set_worktrees_from_proto(message.worktrees, cx)?;
-        self.set_collaborators_from_proto(message.collaborators, cx)?;
-
-        let project = cx.weak_entity();
-        self.lsp_store.update(cx, |lsp_store, cx| {
-            lsp_store.set_language_server_statuses_from_proto(
-                project,
-                message.language_servers,
-                message.language_server_capabilities,
-                cx,
-            )
-        });
-        self.enqueue_buffer_ordered_message(BufferOrderedMessage::Resync)
-            .unwrap();
-        cx.emit(Event::Rejoined);
-        Ok(())
-    }
-
-    #[inline]
-    pub fn unshare(&mut self, cx: &mut Context<Self>) -> Result<()> {
-        self.unshare_internal(cx)?;
-        cx.emit(Event::RemoteIdChanged(None));
-        Ok(())
-    }
-
-    fn unshare_internal(&mut self, cx: &mut App) -> Result<()> {
-        anyhow::ensure!(
-            !self.is_via_collab(),
-            "attempted to unshare a remote project"
-        );
-
-        if let ProjectClientState::Shared { remote_id, .. } = self.client_state {
-            self.client_state = ProjectClientState::Local;
-            self.collaborators.clear();
-            self.client_subscriptions.clear();
-            self.worktree_store.update(cx, |store, cx| {
-                store.unshared(cx);
-            });
-            self.buffer_store.update(cx, |buffer_store, cx| {
-                buffer_store.forget_shared_buffers();
-                buffer_store.unshared(cx)
-            });
-            self.task_store.update(cx, |task_store, cx| {
-                task_store.unshared(cx);
-            });
-            self.breakpoint_store.update(cx, |breakpoint_store, cx| {
-                breakpoint_store.unshared(cx);
-            });
-            self.dap_store.update(cx, |dap_store, cx| {
-                dap_store.unshared(cx);
-            });
-            self.settings_observer.update(cx, |settings_observer, cx| {
-                settings_observer.unshared(cx);
-            });
-            self.git_store.update(cx, |git_store, cx| {
-                git_store.unshared(cx);
-            });
-
-            self.collab_client
-                .send(proto::UnshareProject {
-                    project_id: remote_id,
-                })
-                .ok();
-            Ok(())
-        } else {
-            anyhow::bail!("attempted to unshare an unshared project");
-        }
-    }
-
-    pub fn disconnected_from_host(&mut self, cx: &mut Context<Self>) {
-        if self.is_disconnected(cx) {
-            return;
-        }
-        self.disconnected_from_host_internal(cx);
-        cx.emit(Event::DisconnectedFromHost);
-    }
-
-    pub fn set_role(&mut self, role: proto::ChannelRole, cx: &mut Context<Self>) {
-        let new_capability =
-            if role == proto::ChannelRole::Member || role == proto::ChannelRole::Admin {
-                Capability::ReadWrite
-            } else {
-                Capability::ReadOnly
-            };
-        if let ProjectClientState::Remote { capability, .. } = &mut self.client_state {
-            if *capability == new_capability {
-                return;
-            }
-
-            *capability = new_capability;
-            for buffer in self.opened_buffers(cx) {
-                buffer.update(cx, |buffer, cx| buffer.set_capability(new_capability, cx));
-            }
-        }
-    }
-
     #[inline]
     pub fn close(&mut self, cx: &mut Context<Self>) {
         cx.emit(Event::Closed);
@@ -2301,16 +1556,7 @@ impl Project {
 
     #[inline]
     pub fn is_disconnected(&self, cx: &App) -> bool {
-        match &self.client_state {
-            ProjectClientState::Remote {
-                sharing_has_stopped,
-                ..
-            } => *sharing_has_stopped,
-            ProjectClientState::Local if self.is_via_remote_server() => {
-                self.remote_client_is_disconnected(cx)
-            }
-            _ => false,
-        }
+        false
     }
 
     #[inline]
@@ -2634,17 +1880,6 @@ impl Project {
                             .push(operation);
                     }
 
-                    BufferOrderedMessage::Resync => {
-                        operations_by_buffer_id.clear();
-                        if project
-                            .update(cx, |this, cx| this.synchronize_remote_buffers(cx))?
-                            .await
-                            .is_ok()
-                        {
-                            needs_resync_with_host = false;
-                        }
-                    }
-
                     BufferOrderedMessage::LanguageServerUpdate {
                         language_server_id,
                         message,
@@ -2728,20 +1963,6 @@ impl Project {
                 })
                 .detach();
             }
-        }
-    }
-
-    fn on_dap_store_event(
-        &mut self,
-        _: Entity<DapStore>,
-        event: &DapStoreEvent,
-        cx: &mut Context<Self>,
-    ) {
-        if let DapStoreEvent::Notification(message) = event {
-            cx.emit(Event::Toast {
-                notification_id: "dap".into(),
-                message: message.clone(),
-            });
         }
     }
 
@@ -3232,6 +2453,7 @@ impl Project {
     pub fn toolchain_store(&self) -> Option<Entity<ToolchainStore>> {
         self.toolchain_store.clone()
     }
+
     pub fn activate_toolchain(
         &self,
         path: ProjectPath,
@@ -3243,6 +2465,7 @@ impl Project {
         };
         toolchain_store.update(cx, |this, cx| this.activate_toolchain(path, toolchain, cx))
     }
+
     pub fn active_toolchain(
         &self,
         path: ProjectPath,
@@ -3256,6 +2479,7 @@ impl Project {
             .read(cx)
             .active_toolchain(path, language_name, cx)
     }
+
     pub fn language_server_statuses<'a>(
         &'a self,
         cx: &'a App,
@@ -4536,23 +3760,6 @@ impl Project {
         })?
     }
 
-    async fn handle_update_buffer_from_remote_server(
-        this: Entity<Self>,
-        envelope: TypedEnvelope<proto::UpdateBuffer>,
-        cx: AsyncApp,
-    ) -> Result<proto::Ack> {
-        let buffer_store = this.read_with(&cx, |this, cx| {
-            if let Some(remote_id) = this.remote_id() {
-                let mut payload = envelope.payload.clone();
-                payload.project_id = remote_id;
-                cx.background_spawn(this.collab_client.request(payload))
-                    .detach_and_log_err(cx);
-            }
-            this.buffer_store.clone()
-        })?;
-        BufferStore::handle_update_buffer(buffer_store, envelope, cx).await
-    }
-
     async fn handle_update_buffer(
         this: Entity<Self>,
         envelope: TypedEnvelope<proto::UpdateBuffer>,
@@ -4568,41 +3775,6 @@ impl Project {
             this.buffer_store.clone()
         })?;
         BufferStore::handle_update_buffer(buffer_store, envelope, cx).await
-    }
-
-    fn retain_remotely_created_models(
-        &mut self,
-        cx: &mut Context<Self>,
-    ) -> RemotelyCreatedModelGuard {
-        {
-            let mut remotely_create_models = self.remotely_created_models.lock();
-            if remotely_create_models.retain_count == 0 {
-                remotely_create_models.buffers = self.buffer_store.read(cx).buffers().collect();
-                remotely_create_models.worktrees =
-                    self.worktree_store.read(cx).worktrees().collect();
-            }
-            remotely_create_models.retain_count += 1;
-        }
-        RemotelyCreatedModelGuard {
-            remote_models: Arc::downgrade(&self.remotely_created_models),
-        }
-    }
-
-    async fn handle_create_buffer_for_peer(
-        this: Entity<Self>,
-        envelope: TypedEnvelope<proto::CreateBufferForPeer>,
-        mut cx: AsyncApp,
-    ) -> Result<()> {
-        this.update(&mut cx, |this, cx| {
-            this.buffer_store.update(cx, |buffer_store, cx| {
-                buffer_store.handle_create_buffer_for_peer(
-                    envelope,
-                    this.replica_id(),
-                    this.capability(),
-                    cx,
-                )
-            })
-        })?
     }
 
     async fn handle_toggle_lsp_logs(
@@ -4626,21 +3798,6 @@ impl Project {
             })
         })?;
         Ok(())
-    }
-
-    async fn handle_synchronize_buffers(
-        this: Entity<Self>,
-        envelope: TypedEnvelope<proto::SynchronizeBuffers>,
-        mut cx: AsyncApp,
-    ) -> Result<proto::SynchronizeBuffersResponse> {
-        let response = this.update(&mut cx, |this, cx| {
-            let client = this.collab_client.clone();
-            this.buffer_store.update(cx, |this, cx| {
-                this.handle_synchronize_buffers(envelope, cx, client)
-            })
-        })??;
-
-        Ok(response)
     }
 
     async fn handle_search_candidate_buffers(
@@ -4730,107 +3887,6 @@ impl Project {
                 buffer_id: this.create_buffer_for_peer(&buffer, peer_id, cx).into(),
             })
         })?
-    }
-
-    fn create_buffer_for_peer(
-        &mut self,
-        buffer: &Entity<Buffer>,
-        peer_id: proto::PeerId,
-        cx: &mut App,
-    ) -> BufferId {
-        self.buffer_store
-            .update(cx, |buffer_store, cx| {
-                buffer_store.create_buffer_for_peer(buffer, peer_id, cx)
-            })
-            .detach_and_log_err(cx);
-        buffer.read(cx).remote_id()
-    }
-
-    fn synchronize_remote_buffers(&mut self, cx: &mut Context<Self>) -> Task<Result<()>> {
-        let project_id = match self.client_state {
-            ProjectClientState::Remote {
-                sharing_has_stopped,
-                remote_id,
-                ..
-            } => {
-                if sharing_has_stopped {
-                    return Task::ready(Err(anyhow!(
-                        "can't synchronize remote buffers on a readonly project"
-                    )));
-                } else {
-                    remote_id
-                }
-            }
-            ProjectClientState::Shared { .. } | ProjectClientState::Local => {
-                return Task::ready(Err(anyhow!(
-                    "can't synchronize remote buffers on a local project"
-                )));
-            }
-        };
-
-        let client = self.collab_client.clone();
-        cx.spawn(async move |this, cx| {
-            let (buffers, incomplete_buffer_ids) = this.update(cx, |this, cx| {
-                this.buffer_store.read(cx).buffer_version_info(cx)
-            })?;
-            let response = client
-                .request(proto::SynchronizeBuffers {
-                    project_id,
-                    buffers,
-                })
-                .await?;
-
-            let send_updates_for_buffers = this.update(cx, |this, cx| {
-                response
-                    .buffers
-                    .into_iter()
-                    .map(|buffer| {
-                        let client = client.clone();
-                        let buffer_id = match BufferId::new(buffer.id) {
-                            Ok(id) => id,
-                            Err(e) => {
-                                return Task::ready(Err(e));
-                            }
-                        };
-                        let remote_version = language::proto::deserialize_version(&buffer.version);
-                        if let Some(buffer) = this.buffer_for_id(buffer_id, cx) {
-                            let operations =
-                                buffer.read(cx).serialize_ops(Some(remote_version), cx);
-                            cx.background_spawn(async move {
-                                let operations = operations.await;
-                                for chunk in split_operations(operations) {
-                                    client
-                                        .request(proto::UpdateBuffer {
-                                            project_id,
-                                            buffer_id: buffer_id.into(),
-                                            operations: chunk,
-                                        })
-                                        .await?;
-                                }
-                                anyhow::Ok(())
-                            })
-                        } else {
-                            Task::ready(Ok(()))
-                        }
-                    })
-                    .collect::<Vec<_>>()
-            })?;
-
-            // Any incomplete buffers have open requests waiting. Request that the host sends
-            // creates these buffers for us again to unblock any waiting futures.
-            for id in incomplete_buffer_ids {
-                cx.background_spawn(client.request(proto::OpenBufferById {
-                    project_id,
-                    id: id.into(),
-                }))
-                .detach();
-            }
-
-            futures::future::join_all(send_updates_for_buffers)
-                .await
-                .into_iter()
-                .collect()
-        })
     }
 
     pub fn worktree_metadata_protos(&self, cx: &App) -> Vec<proto::WorktreeMetadata> {

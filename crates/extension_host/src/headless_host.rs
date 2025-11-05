@@ -10,10 +10,8 @@ use extension::{
 use fs::{Fs, RemoveOptions, RenameOptions};
 use futures::future::join_all;
 use gpui::{App, AppContext as _, AsyncApp, Context, Entity, Task, WeakEntity};
-use http_client::HttpClient;
 use language::{LanguageConfig, LanguageName, LanguageQueries, LoadedLanguage};
 use lsp::LanguageServerName;
-use node_runtime::NodeRuntime;
 
 use crate::wasm_host::{WasmExtension, WasmHost};
 
@@ -37,18 +35,14 @@ pub struct HeadlessExtensionStore {
 impl HeadlessExtensionStore {
     pub fn new(
         fs: Arc<dyn Fs>,
-        http_client: Arc<dyn HttpClient>,
         extension_dir: PathBuf,
         extension_host_proxy: Arc<ExtensionHostProxy>,
-        node_runtime: NodeRuntime,
         cx: &mut App,
     ) -> Entity<Self> {
         cx.new(|cx| Self {
             fs: fs.clone(),
             wasm_host: WasmHost::new(
                 fs.clone(),
-                http_client.clone(),
-                node_runtime,
                 extension_host_proxy.clone(),
                 extension_dir.join("work"),
                 cx,

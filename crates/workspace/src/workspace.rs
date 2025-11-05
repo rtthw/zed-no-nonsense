@@ -79,7 +79,6 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use session::AppSession;
 use settings::{CenteredPaddingSettings, Settings, SettingsLocation, update_settings_file};
-use shared_screen::SharedScreen;
 use sqlez::{
     bindable::{Bind, Column, StaticColumnCount},
     statement::Statement,
@@ -258,8 +257,6 @@ actions!(
         ToggleRightDock,
         /// Toggles zoom on the active pane.
         ToggleZoom,
-        /// Stops following a collaborator.
-        Unfollow,
         /// Restores the banner.
         RestoreBanner,
         /// Toggles expansion of the selected item.

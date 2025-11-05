@@ -1,3 +1,4 @@
+
 pub mod wit;
 
 use crate::capability_granter::CapabilityGranter;
@@ -21,11 +22,9 @@ use futures::{
     future::BoxFuture,
 };
 use gpui::{App, AsyncApp, BackgroundExecutor, Task, Timer};
-use http_client::HttpClient;
 use language::LanguageName;
 use lsp::LanguageServerName;
 use moka::sync::Cache;
-use node_runtime::NodeRuntime;
 use release_channel::ReleaseChannel;
 use semantic_version::SemanticVersion;
 use settings::Settings;
@@ -50,8 +49,6 @@ use wit::Extension;
 pub struct WasmHost {
     engine: Engine,
     release_channel: ReleaseChannel,
-    http_client: Arc<dyn HttpClient>,
-    node_runtime: NodeRuntime,
     pub(crate) proxy: Arc<ExtensionHostProxy>,
     fs: Arc<dyn Fs>,
     pub work_dir: PathBuf,
@@ -308,52 +305,6 @@ impl extension::Extension for WasmExtension {
         .await?
     }
 
-    async fn context_server_command(
-        &self,
-        context_server_id: Arc<str>,
-        project: Arc<dyn ProjectDelegate>,
-    ) -> Result<Command> {
-        self.call(|extension, store| {
-            async move {
-                let project_resource = store.data_mut().table().push(project)?;
-                let command = extension
-                    .call_context_server_command(store, context_server_id.clone(), project_resource)
-                    .await?
-                    .map_err(|err| store.data().extension_error(err))?;
-                anyhow::Ok(command.into())
-            }
-            .boxed()
-        })
-        .await?
-    }
-
-    async fn context_server_configuration(
-        &self,
-        context_server_id: Arc<str>,
-        project: Arc<dyn ProjectDelegate>,
-    ) -> Result<Option<ContextServerConfiguration>> {
-        self.call(|extension, store| {
-            async move {
-                let project_resource = store.data_mut().table().push(project)?;
-                let Some(configuration) = extension
-                    .call_context_server_configuration(
-                        store,
-                        context_server_id.clone(),
-                        project_resource,
-                    )
-                    .await?
-                    .map_err(|err| store.data().extension_error(err))?
-                else {
-                    return Ok(None);
-                };
-
-                Ok(Some(configuration.try_into()?))
-            }
-            .boxed()
-        })
-        .await?
-    }
-
     async fn suggest_docs_packages(&self, provider: Arc<str>) -> Result<Vec<String>> {
         self.call(|extension, store| {
             async move {
@@ -473,8 +424,6 @@ fn cache_store() -> Arc<IncrementalCompilationCache> {
 impl WasmHost {
     pub fn new(
         fs: Arc<dyn Fs>,
-        http_client: Arc<dyn HttpClient>,
-        node_runtime: NodeRuntime,
         proxy: Arc<ExtensionHostProxy>,
         work_dir: PathBuf,
         cx: &mut App,
@@ -492,8 +441,6 @@ impl WasmHost {
             engine: wasm_engine(cx.background_executor()),
             fs,
             work_dir,
-            http_client,
-            node_runtime,
             proxy,
             release_channel: ReleaseChannel::global(cx),
             granted_capabilities: extension_settings.granted_capabilities.clone(),

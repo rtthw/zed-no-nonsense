@@ -43,7 +43,7 @@ use workspace::{
 };
 use zed::{
     OpenListener, OpenRequest, RawOpenRequest, app_menus, build_window_options,
-    derive_paths_with_position, edit_prediction_registry, handle_cli_connection,
+    derive_paths_with_position, handle_cli_connection,
     handle_keymap_file_changes, handle_settings_changed, handle_settings_file_changes,
     initialize_workspace, open_paths_with_positions,
 };
@@ -161,30 +161,6 @@ pub fn main() {
 
     let args = Args::parse();
 
-    // `zed --askpass` Makes zed operate in nc/netcat mode for use with askpass
-    #[cfg(not(target_os = "windows"))]
-    if let Some(socket) = &args.askpass {
-        askpass::main(socket);
-        return;
-    }
-
-    // `zed --crash-handler` Makes zed operate in minidump crash handler mode
-    if let Some(socket) = &args.crash_handler {
-        crashes::crash_server(socket.as_path());
-        return;
-    }
-
-    // `zed --nc` Makes zed operate in nc/netcat mode for use with MCP
-    if let Some(socket) = &args.nc {
-        match nc::main(socket) {
-            Ok(()) => return,
-            Err(err) => {
-                eprintln!("Error: {}", err);
-                process::exit(1);
-            }
-        }
-    }
-
     // `zed --printenv` Outputs environment variables as JSON to stdout
     if args.printenv {
         util::shell_env::print_env();
@@ -271,19 +247,6 @@ pub fn main() {
     let installation_id = app.background_executor().block(installation_id()).ok();
     let session_id = Uuid::new_v4().to_string();
     let session = app.background_executor().block(Session::new());
-
-    app.background_executor()
-        .spawn(crashes::init(InitCrashHandler {
-            session_id: session_id.clone(),
-            zed_version: app_version.to_string(),
-            binary: "zed".to_string(),
-            release_channel: release_channel::RELEASE_CHANNEL_NAME.clone(),
-            commit_sha: app_commit_sha
-                .as_ref()
-                .map(|sha| sha.full())
-                .unwrap_or_else(|| "no sha".to_owned()),
-        }))
-        .detach();
 
     let (open_listener, mut open_rx) = OpenListener::new();
 
@@ -410,37 +373,10 @@ pub fn main() {
         let mut languages = LanguageRegistry::new(cx.background_executor().clone());
         languages.set_language_server_download_dir(paths::languages_dir().clone());
         let languages = Arc::new(languages);
-        let (mut tx, rx) = watch::channel(None);
-        cx.observe_global::<SettingsStore>(move |cx| {
-            let settings = &ProjectSettings::get_global(cx).node;
-            let options = NodeBinaryOptions {
-                allow_path_lookup: !settings.ignore_system_version,
-                // TODO: Expose this setting
-                allow_binary_download: true,
-                use_paths: settings.path.as_ref().map(|node_path| {
-                    let node_path = PathBuf::from(shellexpand::tilde(node_path).as_ref());
-                    let npm_path = settings
-                        .npm_path
-                        .as_ref()
-                        .map(|path| PathBuf::from(shellexpand::tilde(&path).as_ref()));
-                    (
-                        node_path.clone(),
-                        npm_path.unwrap_or_else(|| {
-                            let base_path = PathBuf::new();
-                            node_path.parent().unwrap_or(&base_path).join("npm")
-                        }),
-                    )
-                }),
-            };
-            tx.send(Some(options)).log_err();
-        })
-        .detach();
-        let node_runtime = NodeRuntime::new(Some(shell_env_loaded_rx), rx);
 
-        debug_adapter_extension::init(extension_host_proxy.clone(), cx);
         language::init(cx);
-        languages::init(languages.clone(), fs.clone(), node_runtime.clone(), cx);
-        let workspace_store = cx.new(|cx| WorkspaceStore::new(client.clone(), cx));
+        languages::init(languages.clone(), fs.clone(), cx);
+        let workspace_store = cx.new(|cx| WorkspaceStore::new(cx));
 
         language_extension::init(
             language_extension::LspAccess::ViaWorkspaces({
@@ -465,15 +401,6 @@ pub fn main() {
 
         zed::init(cx);
         project::Project::init(&client, cx);
-        debugger_ui::init(cx);
-        debugger_tools::init(cx);
-        let telemetry = client.telemetry();
-        telemetry.start(
-            system_id.as_ref().map(|id| id.to_string()),
-            installation_id.as_ref().map(|id| id.to_string()),
-            session_id.clone(),
-            cx,
-        );
 
         // We should rename these in the future to `first app open`, `first app open for release channel`, and `app open`
         if let (Some(system_id), Some(installation_id)) = (&system_id, &installation_id) {
@@ -497,22 +424,17 @@ pub fn main() {
             fs: fs.clone(),
             build_window_options,
             workspace_store,
-            node_runtime,
             session: app_session,
         });
         AppState::set_global(Arc::downgrade(&app_state), cx);
 
-        dap_adapters::init(cx);
         reliability::init(
-            client.http_client(),
             system_id.as_ref().map(|id| id.to_string()),
             cx,
         );
         extension_host::init(
             extension_host_proxy.clone(),
             app_state.fs.clone(),
-            app_state.client.clone(),
-            app_state.node_runtime.clone(),
             cx,
         );
 
@@ -570,8 +492,6 @@ pub fn main() {
         json_schema_store::init(cx);
 
         cx.observe_global::<SettingsStore>({
-            let http = app_state.client.http_client();
-            let client = app_state.client.clone();
             move |cx| {
                 for &mut window in cx.windows().iter_mut() {
                     let background_appearance = cx.theme().window_background_appearance();
@@ -580,14 +500,6 @@ pub fn main() {
                             window.set_background_appearance(background_appearance)
                         })
                         .ok();
-                }
-
-                let new_host = &client::ClientSettings::get_global(cx).server_url;
-                if &http.base_url() != new_host {
-                    http.set_base_url(new_host);
-                    if client.status().borrow().is_connected() {
-                        client.reconnect(&cx.to_async());
-                    }
                 }
             }
         })
@@ -965,27 +877,6 @@ async fn restore_or_create_workspace(app_state: Arc<AppState>, cx: &mut AsyncApp
                         tasks.push(task);
                     }
                 }
-                SerializedWorkspaceLocation::Remote(mut connection_options) => {
-                    let app_state = app_state.clone();
-                    if let RemoteConnectionOptions::Ssh(options) = &mut connection_options {
-                        cx.update(|cx| {
-                            SshSettings::get_global(cx)
-                                .fill_connection_options_from_settings(options)
-                        })?;
-                    }
-                    let task = cx.spawn(async move |cx| {
-                        recent_projects::open_remote_project(
-                            connection_options,
-                            paths.paths().into_iter().map(PathBuf::from).collect(),
-                            app_state,
-                            workspace::OpenOptions::default(),
-                            cx,
-                        )
-                        .await
-                        .map_err(|e| anyhow::anyhow!(e))
-                    });
-                    tasks.push(task);
-                }
             }
         }
 
@@ -1123,7 +1014,6 @@ fn init_paths() -> HashMap<io::ErrorKind, Vec<&'static Path>> {
         paths::config_dir(),
         paths::extensions_dir(),
         paths::languages_dir(),
-        paths::debug_adapters_dir(),
         paths::database_dir(),
         paths::logs_dir(),
         paths::temp_dir(),
@@ -1186,16 +1076,6 @@ struct Args {
     #[arg(long)]
     system_specs: bool,
 
-    /// Used for the MCP Server, to remove the need for netcat as a dependency,
-    /// by having Zed act like netcat communicating over a Unix socket.
-    #[arg(long, hide = true)]
-    nc: Option<String>,
-
-    /// Used for recording minidumps on crashes by having Zed run a separate
-    /// process communicating over a socket.
-    #[arg(long, hide = true)]
-    crash_handler: Option<PathBuf>,
-
     /// Run zed in the foreground, only used on Windows, to match the behavior on macOS.
     #[arg(long)]
     #[cfg(target_os = "windows")]
@@ -1207,13 +1087,6 @@ struct Args {
     #[cfg(target_os = "windows")]
     #[arg(hide = true)]
     dock_action: Option<usize>,
-
-    /// Used for SSH/Git password authentication, to remove the need for netcat as a dependency,
-    /// by having Zed act like netcat communicating over a Unix socket.
-    #[arg(long)]
-    #[cfg(not(target_os = "windows"))]
-    #[arg(hide = true)]
-    askpass: Option<String>,
 
     #[arg(long, hide = true)]
     dump_all_actions: bool,

@@ -1,6 +1,5 @@
 pub use crate::welcome::ShowWelcome;
 use crate::{multibuffer_hint::MultibufferHint, welcome::WelcomePage};
-use client::{Client, UserStore, zed_urls};
 use db::kvp::KEY_VALUE_STORE;
 use fs::Fs;
 use gpui::{
@@ -210,7 +209,6 @@ pub fn show_onboarding_view(app_state: Arc<AppState>, cx: &mut App) -> Task<anyh
 struct Onboarding {
     workspace: WeakEntity<Workspace>,
     focus_handle: FocusHandle,
-    user_store: Entity<UserStore>,
     scroll_handle: ScrollHandle,
     _settings_subscription: Subscription,
 }

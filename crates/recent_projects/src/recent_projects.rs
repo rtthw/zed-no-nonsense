@@ -1,15 +1,9 @@
-pub mod disconnected_overlay;
-mod remote_connections;
-mod remote_servers;
+
 mod ssh_config;
 
 #[cfg(target_os = "windows")]
 mod wsl_picker;
 
-use remote::RemoteConnectionOptions;
-pub use remote_connections::open_remote_project;
-
-use disconnected_overlay::DisconnectedOverlay;
 use fuzzy::{StringMatch, StringMatchCandidate};
 use gpui::{
     Action, AnyElement, App, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable,
@@ -145,23 +139,6 @@ pub fn init(cx: &mut App) {
             });
         });
     });
-    cx.on_action(|open_remote: &OpenRemote, cx| {
-        let from_existing_connection = open_remote.from_existing_connection;
-        let create_new_window = open_remote.create_new_window;
-        with_active_or_new_workspace(cx, move |workspace, window, cx| {
-            if from_existing_connection {
-                cx.propagate();
-                return;
-            }
-            let handle = cx.entity().downgrade();
-            let fs = workspace.project().read(cx).fs().clone();
-            workspace.toggle_modal(window, cx, |window, cx| {
-                RemoteServerProjects::new(create_new_window, fs, window, handle, cx)
-            })
-        });
-    });
-
-    cx.observe_new(DisconnectedOverlay::register).detach();
 }
 
 #[cfg(target_os = "windows")]
@@ -318,7 +295,9 @@ impl RecentProjectsDelegate {
             .all(|(_, location, _)| matches!(location, SerializedWorkspaceLocation::Local));
     }
 }
+
 impl EventEmitter<DismissEvent> for RecentProjectsDelegate {}
+
 impl PickerDelegate for RecentProjectsDelegate {
     type ListItem = ListItem;
 
@@ -697,6 +676,7 @@ fn highlights_for_path(
         },
     )
 }
+
 impl RecentProjectsDelegate {
     fn delete_recent_project(
         &self,
@@ -746,6 +726,7 @@ impl RecentProjectsDelegate {
         false
     }
 }
+
 struct MatchTooltip {
     highlighted_location: HighlightedMatchWithPaths,
 }

@@ -52,20 +52,11 @@ pub struct ProjectSettings {
     /// Common language server settings.
     pub global_lsp_settings: GlobalLspSettings,
 
-    /// Configuration for Debugger-related features
-    pub dap: HashMap<DebugAdapterName, DapSettings>,
-
-    /// Settings for context servers used for AI-related features.
-    pub context_servers: HashMap<Arc<str>, ContextServerSettings>,
-
     /// Configuration for Diagnostics-related features.
     pub diagnostics: DiagnosticsSettings,
 
     /// Configuration for Git-related features
     pub git: GitSettings,
-
-    /// Configuration for Node-related features
-    pub node: NodeBinarySettings,
 
     /// Configuration for how direnv configuration should be loaded
     pub load_direnv: DirenvSettings,
@@ -85,26 +76,6 @@ pub struct SessionSettings {
     pub restore_unsaved_buffers: bool,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, JsonSchema)]
-pub struct NodeBinarySettings {
-    /// The path to the Node binary.
-    pub path: Option<String>,
-    /// The path to the npm binary Zed should use (defaults to `.path/../npm`).
-    pub npm_path: Option<String>,
-    /// If enabled, Zed will download its own copy of Node.
-    pub ignore_system_version: bool,
-}
-
-impl From<settings::NodeBinarySettings> for NodeBinarySettings {
-    fn from(settings: settings::NodeBinarySettings) -> Self {
-        Self {
-            path: settings.path,
-            npm_path: settings.npm_path,
-            ignore_system_version: settings.ignore_system_version.unwrap_or(false),
-        }
-    }
-}
-
 /// Common language server settings.
 #[derive(Debug, Clone, PartialEq)]
 pub struct GlobalLspSettings {
@@ -112,77 +83,6 @@ pub struct GlobalLspSettings {
     ///
     /// Default: `true`
     pub button: bool,
-}
-
-#[derive(Deserialize, Serialize, Clone, PartialEq, Eq, JsonSchema, Debug)]
-#[serde(tag = "source", rename_all = "snake_case")]
-pub enum ContextServerSettings {
-    Custom {
-        /// Whether the context server is enabled.
-        #[serde(default = "default_true")]
-        enabled: bool,
-
-        #[serde(flatten)]
-        command: ContextServerCommand,
-    },
-    Extension {
-        /// Whether the context server is enabled.
-        #[serde(default = "default_true")]
-        enabled: bool,
-        /// The settings for this context server specified by the extension.
-        ///
-        /// Consult the documentation for the context server to see what settings
-        /// are supported.
-        settings: serde_json::Value,
-    },
-}
-
-impl From<settings::ContextServerSettingsContent> for ContextServerSettings {
-    fn from(value: settings::ContextServerSettingsContent) -> Self {
-        match value {
-            settings::ContextServerSettingsContent::Custom { enabled, command } => {
-                ContextServerSettings::Custom { enabled, command }
-            }
-            settings::ContextServerSettingsContent::Extension { enabled, settings } => {
-                ContextServerSettings::Extension { enabled, settings }
-            }
-        }
-    }
-}
-impl Into<settings::ContextServerSettingsContent> for ContextServerSettings {
-    fn into(self) -> settings::ContextServerSettingsContent {
-        match self {
-            ContextServerSettings::Custom { enabled, command } => {
-                settings::ContextServerSettingsContent::Custom { enabled, command }
-            }
-            ContextServerSettings::Extension { enabled, settings } => {
-                settings::ContextServerSettingsContent::Extension { enabled, settings }
-            }
-        }
-    }
-}
-
-impl ContextServerSettings {
-    pub fn default_extension() -> Self {
-        Self::Extension {
-            enabled: true,
-            settings: serde_json::json!({}),
-        }
-    }
-
-    pub fn enabled(&self) -> bool {
-        match self {
-            ContextServerSettings::Custom { enabled, .. } => *enabled,
-            ContextServerSettings::Extension { enabled, .. } => *enabled,
-        }
-    }
-
-    pub fn set_enabled(&mut self, enabled: bool) {
-        match self {
-            ContextServerSettings::Custom { enabled: e, .. } => *e = enabled,
-            ContextServerSettings::Extension { enabled: e, .. } => *e = enabled,
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -473,12 +373,6 @@ impl Settings for ProjectSettings {
             hunk_style: git.hunk_style.unwrap(),
         };
         Self {
-            context_servers: project
-                .context_servers
-                .clone()
-                .into_iter()
-                .map(|(key, value)| (key, value.into()))
-                .collect(),
             lsp: project
                 .lsp
                 .clone()
@@ -493,12 +387,6 @@ impl Settings for ProjectSettings {
                     .button
                     .unwrap(),
             },
-            dap: project
-                .dap
-                .clone()
-                .into_iter()
-                .map(|(key, value)| (DebugAdapterName(key.into()), DapSettings::from(value)))
-                .collect(),
             diagnostics: DiagnosticsSettings {
                 button: diagnostics.button.unwrap(),
                 include_warnings: diagnostics.include_warnings.unwrap(),
@@ -515,7 +403,6 @@ impl Settings for ProjectSettings {
                 },
             },
             git: git_settings,
-            node: content.node.clone().unwrap().into(),
             load_direnv: project.load_direnv.clone().unwrap(),
             session: SessionSettings {
                 restore_unsaved_buffers: content.session.unwrap().restore_unsaved_buffers.unwrap(),

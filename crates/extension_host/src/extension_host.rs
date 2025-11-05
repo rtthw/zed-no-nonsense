@@ -112,8 +112,6 @@ pub struct ExtensionStore {
     pub builder: Arc<ExtensionBuilder>,
     pub extension_index: ExtensionIndex,
     pub fs: Arc<dyn Fs>,
-    pub http_client: Arc<HttpClientWithUrl>,
-    pub telemetry: Option<Arc<Telemetry>>,
     pub reload_tx: UnboundedSender<Option<Arc<str>>>,
     pub reload_complete_senders: Vec<oneshot::Sender<()>>,
     pub installed_dir: PathBuf,
@@ -123,7 +121,6 @@ pub struct ExtensionStore {
     pub wasm_host: Arc<WasmHost>,
     pub wasm_extensions: Vec<(Arc<ExtensionManifest>, WasmExtension)>,
     pub tasks: Vec<Task<()>>,
-    pub remote_clients: HashMap<RemoteConnectionOptions, WeakEntity<RemoteClient>>,
     pub ssh_registered_tx: UnboundedSender<()>,
 }
 
@@ -196,8 +193,6 @@ actions!(
 pub fn init(
     extension_host_proxy: Arc<ExtensionHostProxy>,
     fs: Arc<dyn Fs>,
-    client: Arc<Client>,
-    node_runtime: NodeRuntime,
     cx: &mut App,
 ) {
     ExtensionSettings::register(cx);
@@ -239,10 +234,6 @@ impl ExtensionStore {
         build_dir: Option<PathBuf>,
         extension_host_proxy: Arc<ExtensionHostProxy>,
         fs: Arc<dyn Fs>,
-        http_client: Arc<HttpClientWithUrl>,
-        builder_client: Arc<dyn HttpClient>,
-        telemetry: Option<Arc<Telemetry>>,
-        node_runtime: NodeRuntime,
         cx: &mut Context<Self>,
     ) -> Self {
         let work_dir = extensions_dir.join("work");
@@ -257,26 +248,19 @@ impl ExtensionStore {
             extension_index: Default::default(),
             installed_dir,
             index_path,
-            builder: Arc::new(ExtensionBuilder::new(builder_client, build_dir)),
             outstanding_operations: Default::default(),
             modified_extensions: Default::default(),
             reload_complete_senders: Vec::new(),
             wasm_host: WasmHost::new(
                 fs.clone(),
-                http_client.clone(),
-                node_runtime,
                 extension_host_proxy,
                 work_dir,
                 cx,
             ),
             wasm_extensions: Vec::new(),
             fs,
-            http_client,
-            telemetry,
             reload_tx,
             tasks: Vec::new(),
-
-            remote_clients: HashMap::default(),
             ssh_registered_tx: connection_registered_tx,
         };
 

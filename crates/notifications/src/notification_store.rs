@@ -1,6 +1,4 @@
 use anyhow::{Context as _, Result};
-use channel::ChannelStore;
-use client::{ChannelId, Client, UserStore};
 use db::smol::stream::StreamExt;
 use gpui::{App, AppContext as _, AsyncApp, Context, Entity, EventEmitter, Global, Task};
 use rpc::{Notification, TypedEnvelope, proto};
@@ -9,8 +7,8 @@ use sum_tree::{Bias, Dimensions, SumTree};
 use time::OffsetDateTime;
 use util::ResultExt;
 
-pub fn init(client: Arc<Client>, user_store: Entity<UserStore>, cx: &mut App) {
-    let notification_store = cx.new(|cx| NotificationStore::new(client, user_store, cx));
+pub fn init(cx: &mut App) {
+    let notification_store = cx.new(|cx| NotificationStore::new(cx));
     cx.set_global(GlobalNotificationStore(notification_store));
 }
 
@@ -19,12 +17,8 @@ struct GlobalNotificationStore(Entity<NotificationStore>);
 impl Global for GlobalNotificationStore {}
 
 pub struct NotificationStore {
-    client: Arc<Client>,
-    user_store: Entity<UserStore>,
-    channel_store: Entity<ChannelStore>,
     notifications: SumTree<NotificationEntry>,
     loaded_all_notifications: bool,
-    _watch_connection_status: Task<Option<()>>,
     _subscriptions: Vec<client::Subscription>,
 }
 
@@ -72,39 +66,14 @@ impl NotificationStore {
         cx.global::<GlobalNotificationStore>().0.clone()
     }
 
-    pub fn new(client: Arc<Client>, user_store: Entity<UserStore>, cx: &mut Context<Self>) -> Self {
-        let mut connection_status = client.status();
-        let watch_connection_status = cx.spawn(async move |this, cx| {
-            while let Some(status) = connection_status.next().await {
-                let this = this.upgrade()?;
-                match status {
-                    client::Status::Connected { .. } => {
-                        if let Some(task) = this
-                            .update(cx, |this, cx| this.handle_connect(cx))
-                            .log_err()?
-                        {
-                            task.await.log_err()?;
-                        }
-                    }
-                    _ => this
-                        .update(cx, |this, cx| this.handle_disconnect(cx))
-                        .log_err()?,
-                }
-            }
-            Some(())
-        });
-
+    pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
-            channel_store: ChannelStore::global(cx),
             notifications: Default::default(),
             loaded_all_notifications: false,
-            _watch_connection_status: watch_connection_status,
             _subscriptions: vec![
                 client.add_message_handler(cx.weak_entity(), Self::handle_new_notification),
                 client.add_message_handler(cx.weak_entity(), Self::handle_delete_notification),
             ],
-            user_store,
-            client,
         }
     }
 
@@ -128,6 +97,7 @@ impl NotificationStore {
             .find::<Count, _>((), &Count(ix), Bias::Right);
         item
     }
+
     pub fn notification_for_id(&self, id: u64) -> Option<&NotificationEntry> {
         let (.., item) =
             self.notifications
@@ -175,16 +145,6 @@ impl NotificationStore {
             .await?;
             Ok(())
         }))
-    }
-
-    fn handle_connect(&mut self, cx: &mut Context<Self>) -> Option<Task<Result<()>>> {
-        self.notifications = Default::default();
-        cx.notify();
-        self.load_more_notifications(true, cx)
-    }
-
-    fn handle_disconnect(&mut self, cx: &mut Context<Self>) {
-        cx.notify()
     }
 
     async fn handle_new_notification(
